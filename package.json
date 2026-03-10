@@ -1,0 +1,63 @@
+{
+  "name": "effect-supabase",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "An Effect-ts wrapper for supabase",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "prepublishOnly": "pnpm run clean && pnpm run build"
+  },
+  "keywords": [
+    "effect",
+    "effect-ts",
+    "supabase",
+    "typescript",
+    "functional-programming"
+  ],
+  "author": "Jungin Yu <jungini1226@gmail.com>",
+  "license": "MIT",
+  "packageManager": "pnpm@10.29.2",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@supabase/supabase-js": "^2.99.0"
+    }
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "effect": "^4.0.0"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.79.0",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.3",
+    "prettier": "^3.4.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.99.0",
+    "effect": "4.0.0-beta.29"
+  }
+}
