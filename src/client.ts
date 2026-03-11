@@ -13,9 +13,11 @@ export class Client extends ServiceMap.Service<
   Client,
   {
     /**
+     * NOTE: use `Supabase.withClient` instead.
+     *
      * @returns A SupabaseClient wrapped as a successful Effect.
      */
-    readonly get: <D>() => Effect.Effect<SupabaseClient<D>>;
+    readonly _get: <D>() => Effect.Effect<SupabaseClient<D>>;
   }
 >()("effect-supabase/Client") {}
 
@@ -48,7 +50,7 @@ export namespace Client {
     }
   ) =>
     Layer.succeed(Client, {
-      get: <D>() => Effect.succeed(createServerClient<D>(url, key, options)),
+      _get: <D>() => Effect.succeed(createServerClient<D>(url, key, options)),
     });
 
   /**
@@ -67,6 +69,29 @@ export namespace Client {
    */
   export const browser = (url: string, anon_key: string) =>
     Layer.succeed(Client, {
-      get: <D>() => Effect.succeed(createClient<D>(url, anon_key)),
+      _get: <D>() => Effect.succeed(createClient<D>(url, anon_key)),
     });
+}
+
+/**
+ * Create an async effect that uses a `SupabaseClient`.
+ *
+ * @example
+ * ```typescript
+ * Supabase.withClient<YourGeneratedSupabaseDatabaseType>()(
+ *     (client) => client.from('some-table').select('*')
+ * )
+ * ```
+ *
+ * @param f a function that uses `SupabaseClient`
+ * @returns an `Effect` that uses the `SupabaseClient`
+ * @since 0.1.0
+ */
+export function withClient<D>(): <A>(
+  f: (client: SupabaseClient<D>) => Promise<A>
+) => Effect.Effect<A, never, Client> {
+  return (f) =>
+    Client.use((client) => client._get<D>()).pipe(
+      Effect.flatMap((c) => Effect.promise(() => f(c)))
+    );
 }
