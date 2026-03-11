@@ -16,15 +16,7 @@ import { pipe } from "effect";
 import * as Array from "effect/Array";
 import * as Types from "effect/Types";
 import * as Function from "effect/Function";
-
-function transpose<A, I, R>(
-  o: Option.Option<Effect.Effect<A, I, R>>
-): Effect.Effect<Option.Option<A>, I, R> {
-  return Option.match(o, {
-    onNone: () => Effect.succeedNone,
-    onSome: (effect) => pipe(effect, Effect.map(Option.some)),
-  });
-}
+import { transpose } from "./effect-util";
 
 /**
  * Map supabase's response to Effect<Array, PostgrestError>.
