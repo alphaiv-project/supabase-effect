@@ -4,14 +4,14 @@ import type {
   PostgrestSingleResponse,
 } from "@supabase/supabase-js";
 import * as Effect from "effect/Effect";
-import { PostgrestError } from "./error";
+import { PostgrestError } from "./postgrest-error";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
   decodePure,
   decodePureResult,
   PureSchemaWithEncodedType,
-} from "../schema";
+} from "./schema";
 import { pipe } from "effect";
 import * as Array from "effect/Array";
 import * as Types from "effect/Types";
