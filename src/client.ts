@@ -13,7 +13,7 @@ export class Client extends ServiceMap.Service<
   Client,
   {
     /**
-     * NOTE: use `Supabase.withClient` instead.
+     * NOTE: it is recommended to use `Supabase.withClient` instead, unless you have a specific reason not to.
      *
      * @returns A SupabaseClient wrapped as a successful Effect.
      */
