@@ -11,8 +11,20 @@
       "types": "./dist/client.d.ts"
     },
     "./postgrest": {
-      "import": "./dist/postgrest/index.js",
-      "types": "./dist/postgrest/index.d.ts"
+      "import": "./dist/postgrest.js",
+      "types": "./dist/postgrest.d.ts"
+    },
+    "./auth": {
+      "import": "./dist/auth.js",
+      "types": "./dist/auth.d.ts"
+    },
+    "./auth-error": {
+      "import": "./dist/auth-error.js",
+      "types": "./dist/auth-error.d.ts"
+    },
+    "./postgrest-error": {
+      "import": "./dist/postgrest-error.js",
+      "types": "./dist/postgrest-error.d.ts"
     },
     ".": {
       "import": "./dist/index.js",
@@ -24,9 +36,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -f tsconfig.tsbuildinfo && tsc",
     "watch": "tsc --watch",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.ts\"",
