@@ -30,10 +30,20 @@ export namespace Client {
    *
    * @example
    * ```typescript
-   * Effect.gen(function* () {
-   *     const clientService = yield* Supabase.Client.ssr(SUPABASE_URL, SUPABASE_KEY, { cookies });
-   *     const c = yield* clientService.get<YourGeneratedSupabaseDatabaseType>();
-   * })
+   * Supabase.withClient<YourGeneratedSupabaseDatabaseType>(
+   *   (c) => c.from('some-table').select('*')
+   * ).pipe(
+   *   Effect.provide(Supabase.Client.ssr(
+   *     SUPABASE_URL,
+   *     SUPABASE_KEY,
+   *     {
+   *       cookies: {
+   *         getAll: () => ...,
+   *         setAll: (cookies) => ...
+   *       },
+   *     }
+   *   ))
+   * );
    * ```
    *
    * @constructor
@@ -58,10 +68,14 @@ export namespace Client {
    *
    * @example
    * ```typescript
-   * Effect.gen(function* () {
-   *     const clientService = yield* Supabase.Client.browser(SUPABASE_URL, SUPABASE_ANON_KEY);
-   *     const c = yield* clientService.get<YourGeneratedSupabaseDatabaseType>();
-   * })
+   * Supabase.withClient<YourGeneratedSupabaseDatabaseType>(
+   *   (c) => c.from('some-table').select('*')
+   * ).pipe(
+   *   Effect.provide(Supabase.Client.browser(
+   *     SUPABASE_URL,
+   *     SUPABASE_ANON_KEY,
+   *   ))
+   * );
    * ```
    *
    * @constructor
