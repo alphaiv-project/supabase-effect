@@ -10,6 +10,7 @@ import type {
   User as SupabaseUser,
   UserAttributes,
   UserIdentity,
+  VerifyOtpParams,
   WeakPassword,
 } from "@supabase/supabase-js";
 import * as Effect from "effect/Effect";
@@ -161,7 +162,20 @@ export class Auth extends ServiceMap.Service<
       AuthError
     >;
 
+    /** Gets all the identities linked to a user. */
     readonly getUserIdentities: () => Effect.Effect<UserIdentity[], AuthError>;
+
+    /**
+     * Log in a user given a User supplied OTP or TokenHash received through mobile or email.
+     */
+    readonly verifyOtp: (credentials: VerifyOtpParams) => Effect.Effect<
+      {
+        user: Option.Option<SupabaseUser>;
+        session: Option.Option<Session>;
+      },
+      AuthError,
+      never
+    >;
   }
 >()("effect-supabase/Auth") {}
 
@@ -299,19 +313,29 @@ export namespace Auth {
           Effect.map((res) => res?.identities ?? [])
         );
 
+      const verifyOtp = (credentials: VerifyOtpParams) =>
+        Effect.promise(() => client.auth.verifyOtp(credentials)).pipe(
+          flatMapAuthResponse,
+          Effect.map(({ user, session }) => ({
+            user: Option.fromNullOr(user),
+            session: Option.fromNullOr(session),
+          }))
+        );
+
       return {
+        exchangeCodeForSession,
         getUser,
+        getUserIdentities,
         reauthenticate,
-        resetPasswordForEmail,
         resend,
+        resetPasswordForEmail,
         signInAnonymously,
+        signInWithOAuth,
         signInWithPassword,
         signOut,
-        exchangeCodeForSession,
-        signInWithOAuth,
-        getUserIdentities,
         signUp,
         updateUser,
+        verifyOtp,
       };
     })
   );
