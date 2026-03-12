@@ -1,4 +1,4 @@
-# effect-supabase
+# supabase-effect
 
 An [Effect-ts](https://effect.website/) wrapper for [Supabase](https://supabase.com/) that provides type-safe, composable database operations.
 *NOTE*: it only supports effect@v4, which is currently experimental. (2026-03-11)

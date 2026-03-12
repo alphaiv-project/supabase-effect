@@ -2,7 +2,7 @@ import * as Data from "effect/Data";
 import { AuthError as SupabaseAuthError } from "@supabase/supabase-js";
 import * as Effect from "effect/Effect";
 
-export class AuthError extends Data.TaggedError("effect-supabase/AuthError")<{
+export class AuthError extends Data.TaggedError("supabase-effect/AuthError")<{
   inner: SupabaseAuthError;
 }> {
   constructor(inner: SupabaseAuthError) {
@@ -18,7 +18,7 @@ export namespace AuthError {
     return (
       e instanceof Object &&
       e.hasOwnProperty("_tag") &&
-      (e as { _tag: string })._tag === "effect-supabase/AuthError"
+      (e as { _tag: string })._tag === "supabase-effect/AuthError"
     );
   }
 

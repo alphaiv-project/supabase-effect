@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
  * A tagged error class for `@supabase/supabase-js`'s PostgrestError
  */
 export class PostgrestError extends Data.TaggedError(
-  "effect-supabase/PostgrestError"
+  "supabase-effect/PostgrestError"
 )<{
   inner: SupabasePostgrestError;
 }> {
@@ -23,7 +23,7 @@ export namespace PostgrestError {
     return (
       e instanceof Object &&
       e.hasOwnProperty("_tag") &&
-      (e as { _tag: string })._tag === "effect-supabase/PostgrestError"
+      (e as { _tag: string })._tag === "supabase-effect/PostgrestError"
     );
   }
 

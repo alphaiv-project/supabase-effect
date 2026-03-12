@@ -13,13 +13,13 @@ export class Client extends ServiceMap.Service<
   Client,
   {
     /**
-     * NOTE: it is recommended to use `Supabase.withClient` instead, unless you have a specific reason not to.
+     * NOTE: it is recommended to use {@link withClient} or {@link getClient} instead, unless you have a specific reason not to.
      *
      * @returns A SupabaseClient wrapped as a successful Effect.
      */
     readonly _get: <D>() => Effect.Effect<SupabaseClient<D>>;
   }
->()("effect-supabase/Client") {}
+>()("supabase-effect/Client") {}
 
 /**
  * @since 0.1.0
@@ -85,27 +85,47 @@ export namespace Client {
     Layer.succeed(Client, {
       _get: <D>() => Effect.succeed(createClient<D>(url, anon_key)),
     });
+}
 
-  /**
-   * Create an async effect that uses a `SupabaseClient`.
-   *
-   * @example
-   * ```typescript
-   * Supabase.withClient<YourGeneratedSupabaseDatabaseType>()(
-   *     (client) => client.from('some-table').select('*')
-   * )
-   * ```
-   *
-   * @param f a function that uses `SupabaseClient`
-   * @returns an `Effect` that uses the `SupabaseClient`
-   * @since 0.1.0
-   */
-  export function withClient<D>(): <A>(
-    f: (client: SupabaseClient<D>) => Promise<A>
-  ) => Effect.Effect<A, never, Client> {
-    return (f) =>
-      Client.use((client) => client._get<D>()).pipe(
-        Effect.flatMap((c) => Effect.promise(() => f(c)))
-      );
-  }
+/**
+ * Create an async effect that uses a `SupabaseClient`.
+ *
+ * @example
+ * ```typescript
+ * withClient<YourGeneratedSupabaseDatabaseType>()(
+ *     (client) => client.from('some-table').select('*')
+ * )
+ * ```
+ *
+ * @param f a function that uses `SupabaseClient`
+ * @returns an `Effect` that uses the `SupabaseClient`
+ * @since 0.1.0
+ */
+export function withClient<D>(): <A>(
+  f: (client: SupabaseClient<D>) => Promise<A>
+) => Effect.Effect<A, never, Client> {
+  return (f) =>
+    Client.use((client) => client._get<D>()).pipe(
+      Effect.flatMap((c) => Effect.promise(() => f(c)))
+    );
+}
+
+/**
+ * Get the current `SupabaseClient` in an effect context.
+ *
+ * @example
+ * ```typescript
+ * getClient<YourGeneratedSupabaseDatabaseType>().pipe(
+ *   Effect.map((client) => client.from('some-table').select('*'))
+ * )
+ * ```
+ *
+ * @since 0.1.0
+ */
+export function getClient<D>(): Effect.Effect<
+  SupabaseClient<D>,
+  never,
+  Client
+> {
+  return Client.use((client) => client._get<D>());
 }

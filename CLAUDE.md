@@ -18,11 +18,11 @@ No test suite exists yet. Build output goes to `dist/`.
 
 ## Architecture
 
-This is a TypeScript library (`effect-supabase`) that wraps `@supabase/supabase-js` with [Effect-ts](https://effect.website/) abstractions. It has three export paths:
+This is a TypeScript library (`supabase-effect`) that wraps `@supabase/supabase-js` with [Effect-ts](https://effect.website/) abstractions. It has three export paths:
 
-- `effect-supabase` — re-exports everything as `Supabase.*`
-- `effect-supabase/client` — `Client` service and `withClient`
-- `effect-supabase/postgrest` — PostgREST response mappers and `PostgrestError`
+- `supabase-effect` — re-exports everything as `Supabase.*`
+- `supabase-effect/client` — `Client` service and `withClient`
+- `supabase-effect/postgrest` — PostgREST response mappers and `PostgrestError`
 
 ### Client layer (`src/client.ts`)
 
@@ -52,7 +52,7 @@ These are `pipe`-able functions that convert Supabase's `PostgrestResponse` type
 
 ### Error (`src/postgrest/error.ts`)
 
-`PostgrestError` is a tagged `Data.TaggedError("effect-supabase/PostgrestError")` wrapping Supabase's native `PostgrestError`.
+`PostgrestError` is a tagged `Data.TaggedError("supabase-effect/PostgrestError")` wrapping Supabase's native `PostgrestError`.
 
 ## Conventions
 
