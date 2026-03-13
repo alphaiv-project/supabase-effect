@@ -26,7 +26,7 @@ const flatMapStorageResponse = <T>(
   );
 
 export class Storage extends ServiceMap.Service<Storage>()(
-  "supabase-effect/storage",
+  "supabase-effect/Storage",
   {
     make: Effect.gen(function* () {
       const client = (yield* getClient()).storage;
