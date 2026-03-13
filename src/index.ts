@@ -3,3 +3,5 @@ export * as AuthError from "./auth-error";
 export * as Client from "./client";
 export * as Postgrest from "./postgrest";
 export * as PostgrestError from "./postgrest-error";
+export * as Storage from "./storage";
+export * as StorageError from "./storage-error";
