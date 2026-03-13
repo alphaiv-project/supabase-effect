@@ -11,12 +11,12 @@ An [Effect-ts](https://effect.website/) wrapper for [Supabase](https://supabase.
 
 ### Authentication
 
-- [ ] Full support on authentication utils. 
+- [x] Full support on authentication utils. 
 - [ ] Type-safe authentication error codes.
 
 ### Storage
 
-- [ ] Full support on storage utils.
+- [x] Full support on storage utils.
 
 ### Functions (Serverless features from supabase)
 
