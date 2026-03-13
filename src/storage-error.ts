@@ -6,8 +6,10 @@ import * as Data from "effect/Data";
  *
  * NOTE: This should be exposed directly from the `@supabase/supabase-js` package, but is not.
  * When supported, replace this type def with the package's one.
+ *
+ * @internal
  */
-type SupabaseStorageError = NonNullable<
+export type SupabaseStorageError = NonNullable<
   Awaited<ReturnType<SupabaseClient["storage"]["createBucket"]>>["error"]
 >;
 
