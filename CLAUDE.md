@@ -18,16 +18,23 @@ No test suite exists yet. Build output goes to `dist/`.
 
 ## Architecture
 
-This is a TypeScript library (`supabase-effect`) that wraps `@supabase/supabase-js` with [Effect-ts](https://effect.website/) abstractions. It has the following export paths:
+This is a TypeScript library (`supabase-effect`) that wraps `@supabase/supabase-js` with [Effect-ts](https://effect.website/) abstractions.
 
-- `supabase-effect` — re-exports everything as namespaces: `Auth`, `AuthError`, `Client`, `Postgrest`, `PostgrestError`, `Storage`, `StorageError`
-- `supabase-effect/client` — `Client` service, `withClient`, and `getClient`
-- `supabase-effect/auth` — `Auth` service
-- `supabase-effect/auth-error` — `AuthError` class
-- `supabase-effect/postgrest` — PostgREST response mappers
-- `supabase-effect/postgrest-error` — `PostgrestError` class
+**Note:** This library only supports Effect v4 (currently beta). The `effect` dependency is pinned to `4.0.0-beta.29`.
 
-> Note: `Storage` and `StorageError` are only accessible via the root `supabase-effect` export.
+### Export Paths
+
+| Path | Description |
+|---|---|
+| `supabase-effect` | Re-exports all modules as namespaces: `Auth`, `AuthError`, `Client`, `Postgrest`, `PgResponse`, `PostgrestError`, `Storage`, `StorageError` |
+| `supabase-effect/client` | `Client` service, `withClient`, and `getClient` |
+| `supabase-effect/auth` | `Auth` service |
+| `supabase-effect/auth-error` | `AuthError` class |
+| `supabase-effect/postgrest` | PostgREST query builder, filters, transforms, execute, and convenience combinators |
+| `supabase-effect/postgrest-response` | PostgREST response mappers (low-level) |
+| `supabase-effect/postgrest-error` | `PostgrestError` class |
+| `supabase-effect/storage` | `Storage` service |
+| `supabase-effect/storage-error` | `StorageError` class |
 
 ### Client layer (`src/client.ts`)
 
@@ -71,19 +78,84 @@ All methods take `bucket: string` as their first argument, followed by the origi
 
 `StorageError` is a tagged `Data.TaggedError("supabase-effect/StorageError")` wrapping Supabase's native storage error. The underlying `SupabaseStorageError` type is not publicly exported by `@supabase/supabase-js`, so it is inferred internally via `NonNullable<Awaited<...>["error"]>`.
 
-### PostgREST response mappers (`src/postgrest.ts`)
+### PostgREST query builder (`src/postgrest.ts`)
 
-These are `pipe`-able functions that convert Supabase's `PostgrestResponse` types into `Effect`s:
+Pure pipe-able utilities for building PostgREST queries, with an explicit effectful execution boundary.
+
+**Design**: Build phase is pure functions (no Effect wrapping). Execution is explicit via `execute` or convenience combinators. This preserves Supabase's type-level select query parsing.
+
+**Builder entry point:**
+| Function | Description |
+|---|---|
+| `table<D, T>(tableName)` | Pure: `SupabaseClient<D>` → `PostgrestQueryBuilder` |
+
+**Query starters (pure):**
+| Function | Description |
+|---|---|
+| `select<Q>(columns?, options?)` | Captures string literal `Q` for type-level parsing |
+| `insert(values, options?)` | Maps to `.insert()` |
+| `update(values, options?)` | Maps to `.update()` |
+| `upsert(values, options?)` | Maps to `.upsert()` |
+| `delete_(options?)` | Maps to `.delete()` (`delete` is reserved) |
+
+**Filters (pure, return same builder type):**
+`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `is`, `in_`, `contains`, `containedBy`, `overlaps`, `rangeGt`, `rangeGte`, `rangeLt`, `rangeLte`, `rangeAdjacent`, `textSearch`, `match`, `not`, `or`, `filter`
+
+**Transforms (pure):**
+| Function | Description |
+|---|---|
+| `order`, `limit`, `range` | Preserves builder type |
+| `asSingle()` | Narrows to single row (pure, no execution) |
+| `asMaybeSingle()` | Narrows to nullable single row (pure) |
+| `asCsv()` | Converts to CSV format (pure) |
+
+**Execution:**
+| Function | Description |
+|---|---|
+| `execute` | `PromiseLike<Response>` → `Effect<Response>` |
+
+**Convenience combinators (execute + response mapping):**
+| Function | Description |
+|---|---|
+| `multiple()` | → `Effect<T[], PostgrestError>` |
+| `multipleWithSchema(s)` | → `Effect<A[], PostgrestError \| SchemaError>` |
+| `filterMapMultipleWithSchema(s)` | → `Effect<A[], PostgrestError>` (filters failures) |
+| `single()` | → `Effect<T, PostgrestError>` |
+| `singleWithSchema(s)` | → `Effect<A, PostgrestError \| SchemaError>` |
+| `maybeSingle()` | → `Effect<Option<T>, PostgrestError>` |
+| `maybeSingleWithSchema(s)` | → `Effect<Option<A>, PostgrestError \| SchemaError>` |
+
+Example usage:
+```ts
+Client.getClient().pipe(
+  Effect.flatMap(client =>
+    pipe(
+      Postgrest.table("users")(client),
+      Postgrest.select("id, name, email"),
+      Postgrest.eq("active", true),
+      Postgrest.order("name"),
+      Postgrest.limit(10),
+      Postgrest.multiple(),
+    )
+  )
+)
+```
+
+**Type strategy**: Uses structural typing (`{ method: (...args: any[]) => any }`) instead of importing `PostgrestFilterBuilder<any,...>` directly, because importing the builder classes with `any` generics causes TypeScript OOM due to type explosion in Supabase's recursive type parser.
+
+### PostgREST response mappers (`src/pg-response.ts`)
+
+Pipe-able functions that convert Supabase's `PostgrestResponse` types into `Effect`s:
 
 | Function | Input | Output |
 |---|---|---|
-| `flatMapMultipleResponse()` | `PostgrestResponse<T>` | `Effect<T[], PostgrestError>` |
-| `flatMapMultipleResponseWithSchema(s)` | `PostgrestResponse<I>` | `Effect<A[], PostgrestError \| SchemaError>` |
-| `filterMapMultipleResponseWithSchema(s)` | `PostgrestResponse<I>` | `Effect<A[], PostgrestError>` (filters decode failures) |
-| `flatMapSingleResponse()` | `PostgrestSingleResponse<T>` | `Effect<T, PostgrestError>` |
-| `flatMapSingleResponseWithSchema(s)` | `PostgrestSingleResponse<I>` | `Effect<A, PostgrestError \| SchemaError>` |
-| `flatMapNullableResponse()` | `PostgrestMaybeSingleResponse<T>` | `Effect<Option<T>, PostgrestError>` |
-| `flatMapNullableResponseWithSchema(s)` | `PostgrestMaybeSingleResponse<I>` | `Effect<Option<A>, PostgrestError \| SchemaError>` |
+| `flatMapMultiple()` | `PostgrestResponse<T>` | `Effect<T[], PostgrestError>` |
+| `flatMapMultipleWithSchema(s)` | `PostgrestResponse<I>` | `Effect<A[], PostgrestError \| SchemaError>` |
+| `filterMapMultipleWithSchema(s)` | `PostgrestResponse<I>` | `Effect<A[], PostgrestError>` (filters decode failures) |
+| `flatMapSingle()` | `PostgrestSingleResponse<T>` | `Effect<T, PostgrestError>` |
+| `flatMapSingleWithSchema(s)` | `PostgrestSingleResponse<I>` | `Effect<A, PostgrestError \| SchemaError>` |
+| `flatMapNullable()` | `PostgrestMaybeSingleResponse<T>` | `Effect<Option<T>, PostgrestError>` |
+| `flatMapNullableWithSchema(s)` | `PostgrestMaybeSingleResponse<I>` | `Effect<Option<A>, PostgrestError \| SchemaError>` |
 
 ### PostgREST error (`src/postgrest-error.ts`)
 
@@ -111,4 +183,27 @@ Internal utilities that fill gaps in the current Effect version:
 - `@effect/language-service` plugin is active — it applies Effect-specific transformations
 - `noUnusedLocals: true` is enforced; `noUnusedParameters` is not
 - Package manager: pnpm
-- `@supabase/storage-js` is hoisted via `.npmrc` (`public-hoist-pattern[]=@supabase/storage-js`) so TypeScript can resolve its types by package name — required to avoid `TS2742` on the `Storage` service class
+- Multiple Supabase packages are hoisted via `.npmrc` for TypeScript type resolution:
+  - `@supabase/storage-js` — required for `Storage` service
+  - `@supabase/supabase-js` — required for core types
+  - `@supabase/postgrest-js` — required for `PostgrestQueryBuilder` type
+
+## Project Status
+
+### Completed
+- **Client**: Browser and SSR contexts fully supported
+- **Auth**: 55+ methods wrapped with full coverage
+- **Storage**: All file/bucket operations wrapped (18 methods)
+- **PostgREST Response Mappers**: 7 response mapping functions
+- **PostgREST Query Builder**: Pure builder functions, 24 filters, transforms, `execute`, and 7 convenience combinators
+
+### Planned (Not Started)
+- **Functions**: Serverless function invocation support
+- **Realtime**: Real-time subscription support
+- **Type-safe Error Codes**: For `AuthError` and `PostgrestError`
+
+## Known Issues
+
+1. **`transpose` workaround** in `effect-util.ts`: Fills a gap in Effect v4; should be replaced when Effect adds built-in support.
+2. **`SupabaseStorageError` type inference**: Uses return-type inference since the type isn't exported from `@supabase/supabase-js`.
+3. **Error codes are untyped**: `mapCode` and `catchCode` accept `string` instead of discriminated union types.

@@ -26,6 +26,10 @@
       "import": "./dist/postgrest-error.js",
       "types": "./dist/postgrest-error.d.ts"
     },
+    "./postgrest-response": {
+      "import": "./dist/pg-response.js",
+      "types": "./dist/pg-response.d.ts"
+    },
     "./storage": {
       "import": "./dist/storage.js",
       "types": "./dist/storage.d.ts"
