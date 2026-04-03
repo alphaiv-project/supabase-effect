@@ -26,7 +26,34 @@ export type { PostgrestQueryBuilder } from "@supabase/postgrest-js";
 // Helper types
 // ---------------------------------------------------------------------------
 
-type TableName<D> = Parameters<SupabaseClient<D>["from"]>[0];
+// Accept any SupabaseClient - the type inference comes from client.from() return type
+type AnySupabaseClient = SupabaseClient<any, any, any>;
+
+/**
+ * Structural type for any PostgREST builder that resolves to a response.
+ * Accepts builders with any generic parameters to allow filter chaining.
+ */
+type AnyPostgrestBuilder<T = unknown> = PromiseLike<{
+  data: T[] | T | null;
+  error: { message: string; code?: string; details?: string; hint?: string } | null;
+  count?: number | null;
+  status: number;
+  statusText: string;
+}>;
+
+/**
+ * Builder with a .single() method for single-row queries.
+ */
+type SingleBuilder<T = unknown> = {
+  single: () => AnyPostgrestBuilder<T>;
+};
+
+/**
+ * Builder with a .maybeSingle() method for nullable single-row queries.
+ */
+type MaybeSingleBuilder<T = unknown> = {
+  maybeSingle: () => AnyPostgrestBuilder<T>;
+};
 
 // ---------------------------------------------------------------------------
 // Builder entry point
@@ -75,8 +102,8 @@ type TableName<D> = Parameters<SupabaseClient<D>["from"]>[0];
  * @since 0.2.0
  */
 export const table =
-  <D, T extends TableName<D>>(tableName: T) =>
-  (client: SupabaseClient<D>) =>
+  <T extends string>(tableName: T) =>
+  (client: AnySupabaseClient) =>
     client.from(tableName);
 
 // ---------------------------------------------------------------------------
@@ -1047,33 +1074,33 @@ export const range =
 /**
  * Narrows the builder result type to a **single row**.
  *
- * Named `asSingle` to distinguish from the convenience combinator {@link single},
- * which combines this transform with execution and response mapping.
+ * **Note:** In most cases, you should use {@link executeSingle} instead,
+ * which automatically applies this transform. Only use `asSingle` when
+ * you need raw execution with {@link execute}.
  *
  * This is a **pure** transform — it does not execute the query.
  * The query will return a 406 error if the result contains zero or more than one row.
  *
  * @example
- * Using `asSingle` with {@link execute}:
+ * Using with raw execute:
  * ```ts
  * pipe(
  *   Postgrest.table("users")(client),
  *   Postgrest.select("id, name"),
  *   Postgrest.eq("id", userId),
  *   Postgrest.asSingle(),
- *   Postgrest.execute,
+ *   Postgrest.execute,  // Returns raw PostgrestSingleResponse
  * )
  * ```
  *
  * @example
- * Prefer using the {@link single} convenience combinator instead:
+ * Prefer using {@link executeSingle} (no need for asSingle):
  * ```ts
  * pipe(
  *   Postgrest.table("users")(client),
  *   Postgrest.select("id, name"),
  *   Postgrest.eq("id", userId),
- *   Postgrest.asSingle(),
- *   Postgrest.single(),
+ *   Postgrest.executeSingle(),  // Automatically applies .single()
  * )
  * ```
  *
@@ -1087,21 +1114,33 @@ export const asSingle =
 /**
  * Narrows the builder result type to a **nullable single row**.
  *
- * Named `asMaybeSingle` to distinguish from the convenience combinator {@link maybeSingle},
- * which combines this transform with execution and response mapping.
+ * **Note:** In most cases, you should use {@link executeMaybeSingle} instead,
+ * which automatically applies this transform. Only use `asMaybeSingle` when
+ * you need raw execution with {@link execute}.
  *
  * This is a **pure** transform — it does not execute the query.
  * Returns `null` in the data field if no rows match.
  *
  * @example
- * Using `asMaybeSingle` with {@link execute}:
+ * Using with raw execute:
  * ```ts
  * pipe(
  *   Postgrest.table("users")(client),
  *   Postgrest.select("id, name"),
  *   Postgrest.eq("email", email),
  *   Postgrest.asMaybeSingle(),
- *   Postgrest.execute,
+ *   Postgrest.execute,  // Returns raw PostgrestMaybeSingleResponse
+ * )
+ * ```
+ *
+ * @example
+ * Prefer using {@link executeMaybeSingle} (no need for asMaybeSingle):
+ * ```ts
+ * pipe(
+ *   Postgrest.table("users")(client),
+ *   Postgrest.select("id, name"),
+ *   Postgrest.eq("email", email),
+ *   Postgrest.executeMaybeSingle(),  // Automatically applies .maybeSingle()
  * )
  * ```
  *
@@ -1188,13 +1227,13 @@ export const execute = <Result>(
 // ---------------------------------------------------------------------------
 
 /**
- * Executes the builder and maps the response to `Effect<T[], PostgrestError>`.
+ * Executes a PostgREST query and returns an array of rows.
  *
  * This is a convenience combinator that combines {@link execute} with
- * `PgResponse.flatMapMultiple()`. Use it at the end of a `select` pipeline
- * that returns multiple rows.
+ * automatic error extraction and array result mapping.
  *
- * @returns A function that takes a builder and returns an `Effect` with the decoded rows.
+ * Uses structural typing to accept builders with filters applied, making it
+ * compatible with any builder that resolves to a PostgrestResponse.
  *
  * @example
  * Basic usage:
@@ -1204,10 +1243,10 @@ export const execute = <Result>(
  *     pipe(
  *       Postgrest.table("users")(client),
  *       Postgrest.select("id, name, email"),
- *       Postgrest.eq("active", true),
+ *       Postgrest.eq("active", true),  // Filters work!
  *       Postgrest.order("name"),
  *       Postgrest.limit(10),
- *       Postgrest.multiple(),
+ *       Postgrest.executeMultiple(),
  *     )
  *   )
  * )
@@ -1215,27 +1254,31 @@ export const execute = <Result>(
  *
  * @since 0.2.0
  */
-export const multiple =
+export const executeMultiple =
   () =>
-  <Result>(
-    builder: PromiseLike<PostgrestResponse<Result>>
-  ): Effect.Effect<Array<Result>, PostgrestError> =>
+  <Data = unknown>(
+    builder: AnyPostgrestBuilder<Data[]>
+  ): Effect.Effect<Data[], PostgrestError> =>
     pipe(
       Effect.promise(() => builder.then((r) => r)),
-      Effect.flatMap(PgResponse.flatMapMultiple())
+      Effect.flatMap((response) =>
+        PgResponse.flatMapMultiple()(response as PostgrestResponse<Data>)
+      )
     );
 
 /**
- * Executes the builder and maps the response with schema decoding to
- * `Effect<A[], PostgrestError | SchemaError>`.
+ * Executes a PostgREST query and validates the response with an Effect Schema.
  *
  * Use this when you want to decode raw database rows into validated domain types.
  * Fails the entire `Effect` if **any** row fails to decode.
  *
+ * Uses structural typing to accept builders with filters applied. Runtime schema
+ * validation will catch type mismatches between selected columns and schema.
+ *
  * @param schema - A pure `Schema` to decode each row.
  * @param concurrency - Optional concurrency setting for parallel decoding.
  *
- * @see {@link filterMapMultipleWithSchema} to silently filter out rows that fail to decode.
+ * @see {@link executeFilterMapMultipleWithSchema} to silently filter out rows that fail to decode.
  *
  * @example
  * ```ts
@@ -1251,8 +1294,9 @@ export const multiple =
  *   Effect.flatMap(client =>
  *     pipe(
  *       Postgrest.table("users")(client),
- *       Postgrest.select("id, name, email"),
- *       Postgrest.multipleWithSchema(User),
+ *       Postgrest.select("id, name, email"),  // Must match User schema input
+ *       Postgrest.eq("active", true),         // Filters work!
+ *       Postgrest.executeMultipleWithSchema(User),
  *     )
  *   )
  * )
@@ -1260,30 +1304,36 @@ export const multiple =
  *
  * @since 0.2.0
  */
-export const multipleWithSchema =
-  <A, I>(
+export const executeMultipleWithSchema =
+  <A, I = A>(
     schema: PureSchemaWithEncodedType<A, I>,
     concurrency?: Types.Concurrency
   ) =>
-  (
-    builder: PromiseLike<PostgrestResponse<I>>
+  <Data = I>(
+    builder: AnyPostgrestBuilder<Data[]>
   ): Effect.Effect<Array<A>, PostgrestError | Schema.SchemaError> =>
     pipe(
       Effect.promise(() => builder.then((r) => r)),
-      Effect.flatMap(PgResponse.flatMapMultipleWithSchema(schema, concurrency))
+      Effect.flatMap((response) =>
+        PgResponse.flatMapMultipleWithSchema(schema, concurrency)(
+          response as PostgrestResponse<I>
+        )
+      )
     );
 
 /**
- * Executes the builder and maps the response with schema decoding,
- * **silently filtering out** rows that fail to decode.
+ * Executes a PostgREST query with schema validation, **silently filtering out**
+ * rows that fail to decode.
  *
- * Unlike {@link multipleWithSchema}, this does not fail on decode errors —
+ * Unlike {@link executeMultipleWithSchema}, this does not fail on decode errors —
  * invalid rows are simply excluded from the result.
+ *
+ * Uses structural typing to accept builders with filters applied.
  *
  * @param schema - A pure `Schema` to decode each row.
  * @param concurrency - Optional concurrency setting for parallel decoding.
  *
- * @see {@link multipleWithSchema} to fail the `Effect` when any row fails to decode.
+ * @see {@link executeMultipleWithSchema} to fail the `Effect` when any row fails to decode.
  *
  * @example
  * ```ts
@@ -1292,7 +1342,8 @@ export const multipleWithSchema =
  *     pipe(
  *       Postgrest.table("events")(client),
  *       Postgrest.select("id, payload"),
- *       Postgrest.filterMapMultipleWithSchema(EventSchema),
+ *       Postgrest.eq("status", "active"),  // Filters work!
+ *       Postgrest.executeFilterMapMultipleWithSchema(EventSchema),
  *     )
  *   )
  * )
@@ -1300,31 +1351,31 @@ export const multipleWithSchema =
  *
  * @since 0.2.0
  */
-export const filterMapMultipleWithSchema =
-  <A, I>(
+export const executeFilterMapMultipleWithSchema =
+  <A, I = A>(
     schema: PureSchemaWithEncodedType<A, I>,
     concurrency?: Types.Concurrency
   ) =>
-  (
-    builder: PromiseLike<PostgrestResponse<I>>
+  <Data = I>(
+    builder: AnyPostgrestBuilder<Data[]>
   ): Effect.Effect<Array<A>, PostgrestError> =>
     pipe(
       Effect.promise(() => builder.then((r) => r)),
-      Effect.flatMap(
-        PgResponse.filterMapMultipleWithSchema(schema, concurrency)
+      Effect.flatMap((response) =>
+        PgResponse.filterMapMultipleWithSchema(schema, concurrency)(
+          response as PostgrestResponse<I>
+        )
       )
     );
 
 /**
- * Executes the builder and maps the response to `Effect<T, PostgrestError>`.
+ * Executes a PostgREST query and returns a single row.
  *
- * Use this at the end of a pipeline where exactly **one** row is expected.
- * The builder should have been narrowed with {@link asSingle} beforehand.
+ * Automatically applies `.single()` to the builder, so there's no need
+ * to call {@link asSingle} first.
  *
  * Returns a failed `Effect` with `PostgrestError` if the query returns zero
  * or more than one row (PostgREST returns a 406 error in this case).
- *
- * @returns A function that takes a builder and returns an `Effect` with the single decoded row.
  *
  * @example
  * ```ts
@@ -1334,8 +1385,7 @@ export const filterMapMultipleWithSchema =
  *       Postgrest.table("users")(client),
  *       Postgrest.select("id, name, email"),
  *       Postgrest.eq("id", userId),
- *       Postgrest.asSingle(),
- *       Postgrest.single(),
+ *       Postgrest.executeSingle(),  // No asSingle() needed!
  *     )
  *   )
  * )
@@ -1343,21 +1393,26 @@ export const filterMapMultipleWithSchema =
  *
  * @since 0.2.0
  */
-export const single =
+export const executeSingle =
   () =>
-  <Result>(
-    builder: PromiseLike<PostgrestSingleResponse<Result>>
-  ): Effect.Effect<Result, PostgrestError> =>
+  <Data = unknown>(
+    builder: SingleBuilder<Data>
+  ): Effect.Effect<Data, PostgrestError> =>
     pipe(
-      Effect.promise(() => builder.then((r) => r)),
-      Effect.flatMap(PgResponse.flatMapSingle())
+      Effect.promise(() => builder.single().then((r) => r)),
+      Effect.flatMap((response) =>
+        PgResponse.flatMapSingle()(response as PostgrestSingleResponse<Data>)
+      )
     );
 
 /**
- * Executes the builder and maps the single response with schema decoding to
- * `Effect<A, PostgrestError | SchemaError>`.
+ * Executes a PostgREST query and validates the single row response with an Effect Schema.
  *
- * The builder should have been narrowed with {@link asSingle} beforehand.
+ * Automatically applies `.single()` to the builder, so there's no need
+ * to call {@link asSingle} first.
+ *
+ * Uses structural typing to accept builders with filters applied. Runtime schema
+ * validation will catch type mismatches between selected columns and schema.
  *
  * @param schema - A pure `Schema` to decode the row.
  *
@@ -1374,8 +1429,7 @@ export const single =
  *       Postgrest.table("users")(client),
  *       Postgrest.select("id, name"),
  *       Postgrest.eq("id", userId),
- *       Postgrest.asSingle(),
- *       Postgrest.singleWithSchema(User),
+ *       Postgrest.executeSingleWithSchema(User),  // No asSingle() needed!
  *     )
  *   )
  * )
@@ -1383,25 +1437,27 @@ export const single =
  *
  * @since 0.2.0
  */
-export const singleWithSchema =
-  <A, I>(schema: PureSchemaWithEncodedType<A, I>) =>
-  (
-    builder: PromiseLike<PostgrestSingleResponse<I>>
+export const executeSingleWithSchema =
+  <A, I = A>(schema: PureSchemaWithEncodedType<A, I>) =>
+  <Data = I>(
+    builder: SingleBuilder<Data>
   ): Effect.Effect<A, PostgrestError | Schema.SchemaError> =>
     pipe(
-      Effect.promise(() => builder.then((r) => r)),
-      Effect.flatMap(PgResponse.flatMapSingleWithSchema(schema))
+      Effect.promise(() => builder.single().then((r) => r)),
+      Effect.flatMap((response) =>
+        PgResponse.flatMapSingleWithSchema(schema)(
+          response as PostgrestSingleResponse<I>
+        )
+      )
     );
 
 /**
- * Executes the builder and maps the response to `Effect<Option<T>, PostgrestError>`.
+ * Executes a PostgREST query and returns an optional row.
  *
- * Use this at the end of a pipeline where **zero or one** row is expected.
- * The builder should have been narrowed with {@link asMaybeSingle} beforehand.
+ * Automatically applies `.maybeSingle()` to the builder, so there's no need
+ * to call {@link asMaybeSingle} first.
  *
  * Returns `Option.some(data)` when a row is found, `Option.none()` when no row matches.
- *
- * @returns A function that takes a builder and returns an `Effect` with an `Option` of the decoded row.
  *
  * @example
  * ```ts
@@ -1411,8 +1467,7 @@ export const singleWithSchema =
  *       Postgrest.table("users")(client),
  *       Postgrest.select("id, name, email"),
  *       Postgrest.eq("email", email),
- *       Postgrest.asMaybeSingle(),
- *       Postgrest.maybeSingle(),
+ *       Postgrest.executeMaybeSingle(),  // No asMaybeSingle() needed!
  *     )
  *   )
  * )
@@ -1420,21 +1475,29 @@ export const singleWithSchema =
  *
  * @since 0.2.0
  */
-export const maybeSingle =
+export const executeMaybeSingle =
   () =>
-  <Result>(
-    builder: PromiseLike<PostgrestMaybeSingleResponse<Result>>
-  ): Effect.Effect<Option.Option<Result>, PostgrestError> =>
+  <Data = unknown>(
+    builder: MaybeSingleBuilder<Data>
+  ): Effect.Effect<Option.Option<Data>, PostgrestError> =>
     pipe(
-      Effect.promise(() => builder.then((r) => r)),
-      Effect.flatMap(PgResponse.flatMapNullable())
+      Effect.promise(() => builder.maybeSingle().then((r) => r)),
+      Effect.flatMap((response) =>
+        PgResponse.flatMapNullable()(response as PostgrestMaybeSingleResponse<Data>)
+      )
     );
 
 /**
- * Executes the builder and maps the nullable response with schema decoding to
- * `Effect<Option<A>, PostgrestError | SchemaError>`.
+ * Executes a PostgREST query and validates the optional row response with an Effect Schema.
  *
- * The builder should have been narrowed with {@link asMaybeSingle} beforehand.
+ * Automatically applies `.maybeSingle()` to the builder, so there's no need
+ * to call {@link asMaybeSingle} first.
+ *
+ * Uses structural typing to accept builders with filters applied. Runtime schema
+ * validation will catch type mismatches between selected columns and schema.
+ *
+ * Returns `Option.some(validatedData)` when a row is found and validates,
+ * `Option.none()` when no row matches.
  *
  * @param schema - A pure `Schema` to decode the row (if present).
  *
@@ -1451,8 +1514,7 @@ export const maybeSingle =
  *       Postgrest.table("users")(client),
  *       Postgrest.select("id, name"),
  *       Postgrest.eq("email", email),
- *       Postgrest.asMaybeSingle(),
- *       Postgrest.maybeSingleWithSchema(User),
+ *       Postgrest.executeMaybeSingleWithSchema(User),  // No asMaybeSingle() needed!
  *     )
  *   )
  * )
@@ -1460,12 +1522,62 @@ export const maybeSingle =
  *
  * @since 0.2.0
  */
-export const maybeSingleWithSchema =
-  <A, I>(schema: PureSchemaWithEncodedType<A, I>) =>
-  (
-    builder: PromiseLike<PostgrestMaybeSingleResponse<I>>
+export const executeMaybeSingleWithSchema =
+  <A, I = A>(schema: PureSchemaWithEncodedType<A, I>) =>
+  <Data = I>(
+    builder: MaybeSingleBuilder<Data>
   ): Effect.Effect<Option.Option<A>, PostgrestError | Schema.SchemaError> =>
     pipe(
-      Effect.promise(() => builder.then((r) => r)),
-      Effect.flatMap(PgResponse.flatMapNullableWithSchema(schema))
+      Effect.promise(() => builder.maybeSingle().then((r) => r)),
+      Effect.flatMap((response) =>
+        PgResponse.flatMapNullableWithSchema(schema)(
+          response as PostgrestMaybeSingleResponse<I>
+        )
+      )
     );
+
+// ---------------------------------------------------------------------------
+// Deprecated aliases (for backwards compatibility)
+// ---------------------------------------------------------------------------
+
+/**
+ * @deprecated Use {@link executeMultiple} instead
+ * @since 0.1.0
+ */
+export const multiple = executeMultiple;
+
+/**
+ * @deprecated Use {@link executeSingle} instead. No need for asSingle() anymore.
+ * @since 0.1.0
+ */
+export const single = executeSingle;
+
+/**
+ * @deprecated Use {@link executeMaybeSingle} instead. No need for asMaybeSingle() anymore.
+ * @since 0.1.0
+ */
+export const maybeSingle = executeMaybeSingle;
+
+/**
+ * @deprecated Use {@link executeMultipleWithSchema} instead
+ * @since 0.1.0
+ */
+export const multipleWithSchema = executeMultipleWithSchema;
+
+/**
+ * @deprecated Use {@link executeSingleWithSchema} instead. No need for asSingle() anymore.
+ * @since 0.1.0
+ */
+export const singleWithSchema = executeSingleWithSchema;
+
+/**
+ * @deprecated Use {@link executeMaybeSingleWithSchema} instead. No need for asMaybeSingle() anymore.
+ * @since 0.1.0
+ */
+export const maybeSingleWithSchema = executeMaybeSingleWithSchema;
+
+/**
+ * @deprecated Use {@link executeFilterMapMultipleWithSchema} instead
+ * @since 0.1.0
+ */
+export const filterMapMultipleWithSchema = executeFilterMapMultipleWithSchema;

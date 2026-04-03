@@ -1,7 +1,7 @@
 {
   "name": "supabase-effect",
   "type": "module",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "An Effect-ts wrapper for supabase",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -52,6 +52,8 @@
     "watch": "tsc --watch",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc --project test/tsconfig.json --noEmit",
+    "typecheck:all": "pnpm typecheck && pnpm typecheck:test",
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",

@@ -22,6 +22,59 @@ This is a TypeScript library (`supabase-effect`) that wraps `@supabase/supabase-
 
 **Note:** This library only supports Effect v4 (currently beta). The `effect` dependency is pinned to `4.0.0-beta.29`.
 
+## Breaking Changes in v0.2.0
+
+### Renamed Execution Functions
+
+All convenience combinators have been renamed to use the `execute*` prefix for clarity:
+
+| Old Name | New Name |
+|----------|----------|
+| `multiple()` | `executeMultiple()` |
+| `single()` | `executeSingle()` |
+| `maybeSingle()` | `executeMaybeSingle()` |
+| `multipleWithSchema()` | `executeMultipleWithSchema()` |
+| `singleWithSchema()` | `executeSingleWithSchema()` |
+| `maybeSingleWithSchema()` | `executeMaybeSingleWithSchema()` |
+| `filterMapMultipleWithSchema()` | `executeFilterMapMultipleWithSchema()` |
+
+**Backward compatibility**: Old names are still available as deprecated aliases.
+
+### No More `asSingle()` / `asMaybeSingle()` Required
+
+The new `executeSingle()` and `executeMaybeSingle()` functions automatically apply the type narrowing transform:
+
+```ts
+// Old:
+pipe(
+  Postgrest.select("id, name"),
+  Postgrest.eq("id", 1),
+  Postgrest.asSingle(),  // ← Manual transform
+  Postgrest.single()     // ← Execute
+)
+
+// New:
+pipe(
+  Postgrest.select("id, name"),
+  Postgrest.eq("id", 1),
+  Postgrest.executeSingle()  // ← Auto-applies .single()
+)
+```
+
+### Fixed: Schema Validation + Filters
+
+Schema validation functions now accept builders with filters applied:
+
+```ts
+// This now works!
+pipe(
+  Postgrest.table("users")(client),
+  Postgrest.select("id, name, email"),
+  Postgrest.eq("active", true),  // ← Filter works with schema
+  Postgrest.executeMultipleWithSchema(UserSchema)
+)
+```
+
 ### Export Paths
 
 | Path | Description |
@@ -117,13 +170,13 @@ Pure pipe-able utilities for building PostgREST queries, with an explicit effect
 **Convenience combinators (execute + response mapping):**
 | Function | Description |
 |---|---|
-| `multiple()` | → `Effect<T[], PostgrestError>` |
-| `multipleWithSchema(s)` | → `Effect<A[], PostgrestError \| SchemaError>` |
-| `filterMapMultipleWithSchema(s)` | → `Effect<A[], PostgrestError>` (filters failures) |
-| `single()` | → `Effect<T, PostgrestError>` |
-| `singleWithSchema(s)` | → `Effect<A, PostgrestError \| SchemaError>` |
-| `maybeSingle()` | → `Effect<Option<T>, PostgrestError>` |
-| `maybeSingleWithSchema(s)` | → `Effect<Option<A>, PostgrestError \| SchemaError>` |
+| `executeMultiple()` | → `Effect<T[], PostgrestError>` |
+| `executeMultipleWithSchema(s)` | → `Effect<A[], PostgrestError \| SchemaError>` |
+| `executeFilterMapMultipleWithSchema(s)` | → `Effect<A[], PostgrestError>` (filters failures) |
+| `executeSingle()` | → `Effect<T, PostgrestError>` (auto-applies `.single()`) |
+| `executeSingleWithSchema(s)` | → `Effect<A, PostgrestError \| SchemaError>` (auto-applies `.single()`) |
+| `executeMaybeSingle()` | → `Effect<Option<T>, PostgrestError>` (auto-applies `.maybeSingle()`) |
+| `executeMaybeSingleWithSchema(s)` | → `Effect<Option<A>, PostgrestError \| SchemaError>` (auto-applies `.maybeSingle()`) |
 
 Example usage:
 ```ts
@@ -135,7 +188,7 @@ Client.getClient().pipe(
       Postgrest.eq("active", true),
       Postgrest.order("name"),
       Postgrest.limit(10),
-      Postgrest.multiple(),
+      Postgrest.executeMultiple(),
     )
   )
 )

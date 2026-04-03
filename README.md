@@ -1,7 +1,20 @@
 # supabase-effect
 
 An [Effect-ts](https://effect.website/) wrapper for [Supabase](https://supabase.com/) that provides type-safe, composable database operations.
-*NOTE*: it only supports effect@v4, which is currently experimental. (2026-03-11)
+
+## ⚠️ Important: Effect v4 Beta Dependency
+
+**This library requires `effect@4.0.0-beta.29`, which is currently experimental.**
+
+- Effect v4 is in beta and APIs may change
+- Known issues:
+  - Some type helpers (`Effect.Effect.Success`, `Effect.Effect.Error`) may not work in certain contexts
+  - Breaking changes may occur between beta versions
+- Production use: Evaluate stability requirements for your use case
+
+We'll update to stable Effect v4 once released.
+
+---
 
 ## TODOs
 
