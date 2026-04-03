@@ -35,7 +35,12 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  */
 type AnyPostgrestBuilder<T = unknown> = PromiseLike<{
   data: T[] | T | null;
-  error: { message: string; code?: string; details?: string; hint?: string } | null;
+  error: {
+    message: string;
+    code?: string;
+    details?: string;
+    hint?: string;
+  } | null;
   count?: number | null;
   status: number;
   statusText: string;
@@ -1315,9 +1320,10 @@ export const executeMultipleWithSchema =
     pipe(
       Effect.promise(() => builder.then((r) => r)),
       Effect.flatMap((response) =>
-        PgResponse.flatMapMultipleWithSchema(schema, concurrency)(
-          response as PostgrestResponse<I>
-        )
+        PgResponse.flatMapMultipleWithSchema(
+          schema,
+          concurrency
+        )(response as PostgrestResponse<I>)
       )
     );
 
@@ -1362,9 +1368,10 @@ export const executeFilterMapMultipleWithSchema =
     pipe(
       Effect.promise(() => builder.then((r) => r)),
       Effect.flatMap((response) =>
-        PgResponse.filterMapMultipleWithSchema(schema, concurrency)(
-          response as PostgrestResponse<I>
-        )
+        PgResponse.filterMapMultipleWithSchema(
+          schema,
+          concurrency
+        )(response as PostgrestResponse<I>)
       )
     );
 
@@ -1483,7 +1490,9 @@ export const executeMaybeSingle =
     pipe(
       Effect.promise(() => builder.maybeSingle().then((r) => r)),
       Effect.flatMap((response) =>
-        PgResponse.flatMapNullable()(response as PostgrestMaybeSingleResponse<Data>)
+        PgResponse.flatMapNullable()(
+          response as PostgrestMaybeSingleResponse<Data>
+        )
       )
     );
 
