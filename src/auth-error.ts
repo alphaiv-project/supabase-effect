@@ -17,7 +17,7 @@ export namespace AuthError {
   export function is(e: unknown): e is AuthError {
     return (
       e instanceof Object &&
-      e.hasOwnProperty("_tag") &&
+      "_tag" in e &&
       (e as { _tag: string })._tag === "supabase-effect/AuthError"
     );
   }
