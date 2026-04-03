@@ -29,5 +29,5 @@ An [Effect-ts](https://effect.website/) wrapper for [Supabase](https://supabase.
 ### Postgrest
 
 - [x] Basic Postgrest utility - Effect-ts styled utilities
-- [ ] Type-safe postgres error codes.
+- [x] Type-safe postgres error codes.
 - [ ] PostgrestQueryBuilder support - needs further specification, and discussion on supportability.
