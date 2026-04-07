@@ -108,7 +108,7 @@ type MaybeSingleBuilder<T = unknown> = {
  */
 export const table =
   <T extends string>(tableName: T) =>
-  (client: AnySupabaseClient) =>
+  <C extends AnySupabaseClient>(client: C) =>
     client.from(tableName);
 
 // ---------------------------------------------------------------------------
@@ -221,15 +221,21 @@ export const select =
  * @since 0.2.0
  */
 export const insert =
-  (
-    values: unknown,
+  <V>(
+    values: V | V[],
     options?: {
       count?: "exact" | "planned" | "estimated";
       defaultToNull?: boolean;
     }
   ) =>
-  <QB extends { insert: (...args: any[]) => any }>(qb: QB) =>
-    qb.insert(values, options) as ReturnType<QB["insert"]>;
+  <
+    QB extends {
+      insert: (values: NoInfer<V> | NoInfer<V>[], options?: any) => any;
+    },
+  >(
+    qb: QB
+  ) =>
+    qb.insert(values as any, options) as ReturnType<QB["insert"]>;
 
 /**
  * Maps a `PostgrestQueryBuilder` to an update operation.
@@ -268,9 +274,9 @@ export const insert =
  * @since 0.2.0
  */
 export const update =
-  (values: unknown, options?: { count?: "exact" | "planned" | "estimated" }) =>
-  <QB extends { update: (...args: any[]) => any }>(qb: QB) =>
-    qb.update(values, options) as ReturnType<QB["update"]>;
+  <V>(values: V, options?: { count?: "exact" | "planned" | "estimated" }) =>
+  <QB extends { update: (values: NoInfer<V>, options?: any) => any }>(qb: QB) =>
+    qb.update(values as any, options) as ReturnType<QB["update"]>;
 
 /**
  * Maps a `PostgrestQueryBuilder` to an upsert operation.
@@ -305,8 +311,8 @@ export const update =
  * @since 0.2.0
  */
 export const upsert =
-  (
-    values: unknown,
+  <V>(
+    values: V | V[],
     options?: {
       onConflict?: string;
       ignoreDuplicates?: boolean;
@@ -314,8 +320,14 @@ export const upsert =
       defaultToNull?: boolean;
     }
   ) =>
-  <QB extends { upsert: (...args: any[]) => any }>(qb: QB) =>
-    qb.upsert(values, options) as ReturnType<QB["upsert"]>;
+  <
+    QB extends {
+      upsert: (values: NoInfer<V> | NoInfer<V>[], options?: any) => any;
+    },
+  >(
+    qb: QB
+  ) =>
+    qb.upsert(values as any, options) as ReturnType<QB["upsert"]>;
 
 /**
  * Maps a `PostgrestQueryBuilder` to a delete operation.
