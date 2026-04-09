@@ -1,7 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// `any` is used intentionally in structural type constraints to avoid
-// importing unexported internal types from @supabase/postgrest-js
-// (GenericSchema, GenericTable, GenericView) which causes TypeScript OOM.
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import type {
@@ -26,39 +23,16 @@ export type { PostgrestQueryBuilder } from "@supabase/postgrest-js";
 // Helper types
 // ---------------------------------------------------------------------------
 
-// Accept any SupabaseClient - the type inference comes from client.from() return type
-type AnySupabaseClient = SupabaseClient<any, any, any>;
-
 /**
- * Structural type for any PostgREST builder that resolves to a response.
- * Accepts builders with any generic parameters to allow filter chaining.
+ * Extract the row type `T` from a builder whose `PromiseLike` resolves to
+ * `PostgrestResponse<T>` (i.e. `PostgrestSingleResponse<T[]>`).
+ *
+ * This is used by the execute functions to infer the row type from a properly-
+ * typed builder produced by {@link from}.
  */
-type AnyPostgrestBuilder<T = unknown> = PromiseLike<{
-  data: T[] | T | null;
-  error: {
-    message: string;
-    code?: string;
-    details?: string;
-    hint?: string;
-  } | null;
-  count?: number | null;
-  status: number;
-  statusText: string;
-}>;
+type InferRow<B> = B extends PromiseLike<PostgrestResponse<infer T>> ? T : unknown;
 
-/**
- * Builder with a .single() method for single-row queries.
- */
-type SingleBuilder<T = unknown> = {
-  single: () => AnyPostgrestBuilder<T>;
-};
 
-/**
- * Builder with a .maybeSingle() method for nullable single-row queries.
- */
-type MaybeSingleBuilder<T = unknown> = {
-  maybeSingle: () => AnyPostgrestBuilder<T>;
-};
 
 // ---------------------------------------------------------------------------
 // Builder entry point
@@ -108,8 +82,47 @@ type MaybeSingleBuilder<T = unknown> = {
  */
 export const table =
   <T extends string>(tableName: T) =>
-  <C extends AnySupabaseClient>(client: C) =>
+  <DB>(client: SupabaseClient<DB>) =>
     client.from(tableName);
+
+/**
+ * Creates a typed PostgREST query builder for the given table and columns.
+ *
+ * Combines `client.from(tableName).select(columns)` into a single call so that
+ * TypeScript can resolve Supabase's overloaded `.select()` on the concrete
+ * client type, preserving the exact column-level type inference.
+ *
+ * This is the **recommended entry point** for read queries.
+ *
+ * @param tableName - The name of the table or view to query.
+ * @param columns - A comma-separated string of columns to select, with support for
+ *   embedded resources (e.g. `"id, name, posts(*)"`). Defaults to `"*"`.
+ * @param options - Optional settings for head/count queries.
+ * @returns A curried function that accepts a `SupabaseClient` and returns a typed builder.
+ *
+ * @example
+ * ```ts
+ * Client.getClient<Database>().pipe(
+ *   Effect.flatMap(client =>
+ *     pipe(
+ *       Postgrest.from("users", "id, name, email")(client),
+ *       Postgrest.eq("active", true),
+ *       Postgrest.executeMultiple(),
+ *     )
+ *   )
+ * )
+ * ```
+ *
+ * @since 0.3.0
+ */
+export const from =
+  <T extends string, Q extends string = "*">(
+    tableName: T,
+    columns?: Q,
+    options?: { head?: boolean; count?: "exact" | "planned" | "estimated" },
+  ) =>
+  <DB>(client: SupabaseClient<DB>) =>
+    client.from(tableName).select(columns, options);
 
 // ---------------------------------------------------------------------------
 // Query starters (pure)
@@ -1273,13 +1286,13 @@ export const execute = <Result>(
  */
 export const executeMultiple =
   () =>
-  <Data = unknown>(
-    builder: AnyPostgrestBuilder<Data[]>
-  ): Effect.Effect<Data[], PostgrestError> =>
+  <T>(
+    builder: PromiseLike<PostgrestResponse<T>>
+  ): Effect.Effect<T[], PostgrestError> =>
     pipe(
       Effect.promise(() => builder.then((r) => r)),
       Effect.flatMap((response) =>
-        PgResponse.flatMapMultiple()(response as PostgrestResponse<Data>)
+        PgResponse.flatMapMultiple()(response as PostgrestResponse<T>)
       )
     );
 
@@ -1326,8 +1339,8 @@ export const executeMultipleWithSchema =
     schema: PureSchemaWithEncodedType<A, I>,
     concurrency?: Types.Concurrency
   ) =>
-  <Data = I>(
-    builder: AnyPostgrestBuilder<Data[]>
+  (
+    builder: PromiseLike<PostgrestResponse<any>>
   ): Effect.Effect<Array<A>, PostgrestError | Schema.SchemaError> =>
     pipe(
       Effect.promise(() => builder.then((r) => r)),
@@ -1374,8 +1387,8 @@ export const executeFilterMapMultipleWithSchema =
     schema: PureSchemaWithEncodedType<A, I>,
     concurrency?: Types.Concurrency
   ) =>
-  <Data = I>(
-    builder: AnyPostgrestBuilder<Data[]>
+  (
+    builder: PromiseLike<PostgrestResponse<any>>
   ): Effect.Effect<Array<A>, PostgrestError> =>
     pipe(
       Effect.promise(() => builder.then((r) => r)),
@@ -1414,13 +1427,13 @@ export const executeFilterMapMultipleWithSchema =
  */
 export const executeSingle =
   () =>
-  <Data = unknown>(
-    builder: SingleBuilder<Data>
-  ): Effect.Effect<Data, PostgrestError> =>
+  <B extends PromiseLike<PostgrestResponse<any>> & { single: (...args: any[]) => any }>(
+    builder: B
+  ): Effect.Effect<InferRow<B>, PostgrestError> =>
     pipe(
-      Effect.promise(() => builder.single().then((r) => r)),
+      Effect.promise(() => builder.single().then((r: any) => r)),
       Effect.flatMap((response) =>
-        PgResponse.flatMapSingle()(response as PostgrestSingleResponse<Data>)
+        PgResponse.flatMapSingle()(response as PostgrestSingleResponse<InferRow<B>>)
       )
     );
 
@@ -1458,11 +1471,11 @@ export const executeSingle =
  */
 export const executeSingleWithSchema =
   <A, I = A>(schema: PureSchemaWithEncodedType<A, I>) =>
-  <Data = I>(
-    builder: SingleBuilder<Data>
+  (
+    builder: PromiseLike<PostgrestResponse<any>> & { single: (...args: any[]) => any }
   ): Effect.Effect<A, PostgrestError | Schema.SchemaError> =>
     pipe(
-      Effect.promise(() => builder.single().then((r) => r)),
+      Effect.promise(() => builder.single().then((r: any) => r)),
       Effect.flatMap((response) =>
         PgResponse.flatMapSingleWithSchema(schema)(
           response as PostgrestSingleResponse<I>
@@ -1496,14 +1509,14 @@ export const executeSingleWithSchema =
  */
 export const executeMaybeSingle =
   () =>
-  <Data = unknown>(
-    builder: MaybeSingleBuilder<Data>
-  ): Effect.Effect<Option.Option<Data>, PostgrestError> =>
+  <B extends PromiseLike<PostgrestResponse<any>> & { maybeSingle: (...args: any[]) => any }>(
+    builder: B
+  ): Effect.Effect<Option.Option<InferRow<B>>, PostgrestError> =>
     pipe(
-      Effect.promise(() => builder.maybeSingle().then((r) => r)),
+      Effect.promise(() => builder.maybeSingle().then((r: any) => r)),
       Effect.flatMap((response) =>
         PgResponse.flatMapNullable()(
-          response as PostgrestMaybeSingleResponse<Data>
+          response as PostgrestMaybeSingleResponse<InferRow<B>>
         )
       )
     );
@@ -1545,11 +1558,11 @@ export const executeMaybeSingle =
  */
 export const executeMaybeSingleWithSchema =
   <A, I = A>(schema: PureSchemaWithEncodedType<A, I>) =>
-  <Data = I>(
-    builder: MaybeSingleBuilder<Data>
+  (
+    builder: PromiseLike<PostgrestResponse<any>> & { maybeSingle: (...args: any[]) => any }
   ): Effect.Effect<Option.Option<A>, PostgrestError | Schema.SchemaError> =>
     pipe(
-      Effect.promise(() => builder.maybeSingle().then((r) => r)),
+      Effect.promise(() => builder.maybeSingle().then((r: any) => r)),
       Effect.flatMap((response) =>
         PgResponse.flatMapNullableWithSchema(schema)(
           response as PostgrestMaybeSingleResponse<I>
