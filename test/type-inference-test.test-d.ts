@@ -1,22 +1,9 @@
 /**
  * Type Inference Test Suite
  *
- * Validates two fixes:
- *
- * 1. `table` preserves the full Database schema type (previously erased to `any`
- *    because the inner lambda accepted `AnySupabaseClient` instead of generic `C`).
- *
- * 2. `insert` / `update` / `upsert` accept a typed generic `V` with a QB constraint
- *    instead of `unknown`, so valid mutations compile when the QB is properly typed.
- *
- * ## @ts-expect-error sentinel pattern
- *
- * For Problem 1 we still use `@ts-expect-error` within `it()` bodies because it
- * directly expresses the invariant: a concrete type must NOT be assignable to an
- * incompatible annotation. If the result type were `any`, the assignment would
- * silently succeed (TypeScript wouldn't error), the `@ts-expect-error` directive
- * would itself become an error ("Unused '@ts-expect-error' directive"), and the
- * typecheck run would fail — proving the fix is necessary.
+ * Validates that `from` preserves the full Database schema type through
+ * Supabase's type-level query parser, and that mutation functions compile
+ * with typed values.
  */
 
 import { describe, it, expectTypeOf } from "vitest";
@@ -27,120 +14,84 @@ import type { Database } from "./test-database.types";
 import * as Client from "../src/client";
 import * as Postgrest from "../src/postgrest";
 import type { PostgrestError } from "../src/postgrest-error";
+import type { EffectSuccess, EffectError, EffectContext } from "./test-util";
 
 // ---------------------------------------------------------------------------
-// Problem 1 — table type preservation
+// Problem 1 — table type preservation via `from`
 // ---------------------------------------------------------------------------
 
 describe("table type preservation", () => {
-  /**
-   * T1: select("id, name") column narrowing
-   *
-   * The @ts-expect-error proves the type is concrete, not `any`:
-   *   - Before fix: result is Effect<any[], ...> — assignable to Effect<boolean[], ...>
-   *     so NO TS error, the directive itself errors → typecheck fails.
-   *   - After fix: result is Effect<Array<{id,name}>, ...> — NOT assignable to
-   *     Effect<boolean[], ...> so TS errors, satisfying the directive → passes.
-   */
-  it("select('id, name') is narrowed to exactly those columns, not any", () => {
+  it("from('users', 'id, name') is narrowed to exactly those columns", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name"),
+          Postgrest.from("users", "id, name")(client),
           Postgrest.executeMultiple()
         )
       )
     );
 
-    // Positive assertion: the exact concrete type.
-    expectTypeOf(result).toEqualTypeOf<
-      Effect.Effect<
-        Array<{ id: number; name: string }>,
-        PostgrestError,
-        Client.Client
-      >
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      Array<{ id: number; name: string }>
     >();
-
-    // Sentinel: boolean[] is incompatible with the concrete array type.
-    // @ts-expect-error — Array<{id,name}> is not assignable to boolean[]
-    const _: Effect.Effect<boolean[], PostgrestError, Client.Client> = result;
+    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
   });
 
-  /**
-   * T2: select("id") single-column narrowing
-   */
-  it("select('id') is narrowed to a single-column type, not any", () => {
+  it("from('users', 'id') is narrowed to a single-column type", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id"),
+          Postgrest.from("users", "id")(client),
           Postgrest.executeMultiple()
         )
       )
     );
 
-    expectTypeOf(result).toEqualTypeOf<
-      Effect.Effect<Array<{ id: number }>, PostgrestError, Client.Client>
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      Array<{ id: number }>
     >();
-
-    // @ts-expect-error — Array<{id}> is not assignable to boolean[]
-    const _: Effect.Effect<boolean[], PostgrestError, Client.Client> = result;
+    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
   });
 
-  /**
-   * T3: executeSingle() returns a typed row, not any
-   */
-  it("executeSingle returns a concrete typed row, not any", () => {
+  it("executeSingle returns a concrete typed row", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name, email, role"),
+          Postgrest.from("users", "id, name, email, role")(client),
           Postgrest.eq("id", 1),
           Postgrest.executeSingle()
         )
       )
     );
 
-    expectTypeOf(result).toEqualTypeOf<
-      Effect.Effect<
-        { id: number; name: string; email: string; role: string },
-        PostgrestError,
-        Client.Client
-      >
-    >();
-
-    // @ts-expect-error — concrete row type is not assignable to boolean
-    const _: Effect.Effect<boolean, PostgrestError, Client.Client> = result;
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<{
+      id: number;
+      name: string;
+      email: string;
+      role: string;
+    }>();
+    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
   });
 
-  /**
-   * T4: executeMaybeSingle() wraps in Option with a typed inner value
-   */
-  it("executeMaybeSingle wraps in Option<T> with a concrete T, not any", () => {
+  it("executeMaybeSingle wraps in Option<T> with a concrete T", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name"),
+          Postgrest.from("users", "id, name")(client),
           Postgrest.eq("email", "alice@example.com"),
           Postgrest.executeMaybeSingle()
         )
       )
     );
 
-    expectTypeOf(result).toEqualTypeOf<
-      Effect.Effect<
-        Option.Option<{ id: number; name: string }>,
-        PostgrestError,
-        Client.Client
-      >
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      Option.Option<{ id: number; name: string }>
     >();
-
-    // @ts-expect-error — Option<{id,name}> is not assignable to boolean
-    const _: Effect.Effect<boolean, PostgrestError, Client.Client> = result;
+    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -149,11 +100,6 @@ describe("table type preservation", () => {
 // ---------------------------------------------------------------------------
 
 describe("mutation type safety", () => {
-  /**
-   * T5: insert with valid Insert-compatible fields compiles.
-   *
-   * { name, email } satisfies users.Insert (required fields; id is auto-generated).
-   */
   it("insert with valid Insert fields compiles", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
@@ -168,11 +114,6 @@ describe("mutation type safety", () => {
     expectTypeOf(result).not.toBeNever();
   });
 
-  /**
-   * T7: Array (bulk) insert compiles.
-   *
-   * TypeScript infers V from the element type; V[] matches insert's overload.
-   */
   it("bulk insert (array) with valid Insert fields compiles", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
@@ -190,11 +131,6 @@ describe("mutation type safety", () => {
     expectTypeOf(result).not.toBeNever();
   });
 
-  /**
-   * T8: update with valid Update-compatible fields compiles.
-   *
-   * users.Update has all fields optional, so { name: string } is valid.
-   */
   it("update with valid Update fields compiles", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
@@ -210,9 +146,6 @@ describe("mutation type safety", () => {
     expectTypeOf(result).not.toBeNever();
   });
 
-  /**
-   * T10: upsert with valid Insert-compatible fields compiles.
-   */
   it("upsert with valid Insert fields compiles", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
@@ -229,18 +162,4 @@ describe("mutation type safety", () => {
 
     expectTypeOf(result).not.toBeNever();
   });
-
-  /**
-   * NOTE — invalid-column rejection is intentionally not tested.
-   *
-   * Supabase defines insert/update/upsert as generic overloaded methods:
-   *   insert<Row extends Insert>(values: Row): ...
-   *   insert<Row extends Insert>(values: Row[]): ...
-   *
-   * TypeScript's bivariant method checking with generic overloads means a
-   * structural QB constraint cannot reliably reject structurally-incompatible
-   * values at the call site. Full column-level rejection would require importing
-   * and re-exposing the actual Insert/Update types, which causes TypeScript OOM
-   * in Supabase's recursive type parser.
-   */
 });

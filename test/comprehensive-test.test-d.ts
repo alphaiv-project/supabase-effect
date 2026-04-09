@@ -2,8 +2,7 @@
  * Comprehensive Type Test Suite
  *
  * Validates all execute variants, schema validation, CRUD operations, filters,
- * pagination, and backward compatibility. A test passes when its body compiles
- * without errors — TypeScript itself is the assertion engine.
+ * pagination, and backward compatibility with exact type assertions.
  */
 
 import { describe, it, expectTypeOf } from "vitest";
@@ -11,10 +10,12 @@ import { pipe } from "effect";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import type { PostgrestSingleResponse } from "@supabase/supabase-js";
 import type { Database } from "./test-database.types";
 import * as Client from "../src/client";
 import * as Postgrest from "../src/postgrest";
 import type { PostgrestError } from "../src/postgrest-error";
+import type { EffectSuccess, EffectError, EffectContext } from "./test-util";
 
 // ---------------------------------------------------------------------------
 // Shared schemas
@@ -39,12 +40,6 @@ const UserIdNameSchema = Schema.Struct({
 });
 
 type UserRow = { id: number; name: string; email: string };
-type UserWithRoleRow = {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-};
 type UserIdNameRow = { id: number; name: string };
 
 // ---------------------------------------------------------------------------
@@ -56,38 +51,45 @@ describe("executeMultiple", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name, email"),
+          Postgrest.from("users", "id, name, email")(client),
           Postgrest.executeMultiple()
         )
       )
     );
 
-    expectTypeOf(result).toEqualTypeOf<
-      Effect.Effect<UserRow[], PostgrestError, Client.Client>
-    >();
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<UserRow[]>();
+    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
   });
 
   it("executeMultipleWithSchema decodes with schema", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name, email"),
+          Postgrest.from("users", "id, name, email")(client),
           Postgrest.executeMultipleWithSchema(UserSchema)
         )
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      Array<{
+        readonly id: number;
+        readonly name: string;
+        readonly email: string;
+      }>
+    >();
+    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<
+      PostgrestError | Schema.SchemaError
+    >();
+    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
   });
 
   it("executeMultipleWithSchema composes with filters", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name, email"),
+          Postgrest.from("users", "id, name, email")(client),
           Postgrest.eq("active", true),
           Postgrest.order("name"),
           Postgrest.limit(10),
@@ -96,7 +98,17 @@ describe("executeMultiple", () => {
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      Array<{
+        readonly id: number;
+        readonly name: string;
+        readonly email: string;
+      }>
+    >();
+    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<
+      PostgrestError | Schema.SchemaError
+    >();
+    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
   });
 
   it("executeMultipleWithSchema composes with multiple filters", () => {
@@ -104,8 +116,7 @@ describe("executeMultiple", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, email, role"),
+            Postgrest.from("users", "id, name, email, role")(client),
             Postgrest.gte("age", minAge),
             Postgrest.in_("role", roles),
             Postgrest.is("deleted_at", null),
@@ -115,22 +126,42 @@ describe("executeMultiple", () => {
         )
       );
 
-    expectTypeOf(result(18, ["admin"])).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      Array<{
+        readonly id: number;
+        readonly name: string;
+        readonly email: string;
+        readonly role: string;
+      }>
+    >();
+    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestError | Schema.SchemaError
+    >();
+    expectTypeOf<
+      EffectContext<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeFilterMapMultipleWithSchema filters out decode failures", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name, email"),
+          Postgrest.from("users", "id, name, email")(client),
           Postgrest.eq("status", "active"),
           Postgrest.executeFilterMapMultipleWithSchema(UserSchema)
         )
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      Array<{
+        readonly id: number;
+        readonly name: string;
+        readonly email: string;
+      }>
+    >();
+    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -144,17 +175,22 @@ describe("executeSingle", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, email"),
+            Postgrest.from("users", "id, name, email")(client),
             Postgrest.eq("id", userId),
             Postgrest.executeSingle()
           )
         )
       );
 
-    expectTypeOf(result(1)).toEqualTypeOf<
-      Effect.Effect<UserRow, PostgrestError, Client.Client>
-    >();
+    expectTypeOf<
+      EffectSuccess<ReturnType<typeof result>>
+    >().toEqualTypeOf<UserRow>();
+    expectTypeOf<
+      EffectError<ReturnType<typeof result>>
+    >().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      EffectContext<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeSingleWithSchema decodes with schema", () => {
@@ -162,15 +198,24 @@ describe("executeSingle", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, email"),
+            Postgrest.from("users", "id, name, email")(client),
             Postgrest.eq("id", userId),
             Postgrest.executeSingleWithSchema(UserSchema)
           )
         )
       );
 
-    expectTypeOf(result(1)).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<{
+      readonly id: number;
+      readonly name: string;
+      readonly email: string;
+    }>();
+    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestError | Schema.SchemaError
+    >();
+    expectTypeOf<
+      EffectContext<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeSingleWithSchema composes with filters", () => {
@@ -178,8 +223,7 @@ describe("executeSingle", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, email, role"),
+            Postgrest.from("users", "id, name, email, role")(client),
             Postgrest.eq("id", userId),
             Postgrest.is("deleted_at", null),
             Postgrest.executeSingleWithSchema(UserWithRoleSchema)
@@ -187,7 +231,18 @@ describe("executeSingle", () => {
         )
       );
 
-    expectTypeOf(result(1)).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<{
+      readonly id: number;
+      readonly name: string;
+      readonly email: string;
+      readonly role: string;
+    }>();
+    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestError | Schema.SchemaError
+    >();
+    expectTypeOf<
+      EffectContext<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -201,17 +256,22 @@ describe("executeMaybeSingle", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, email"),
+            Postgrest.from("users", "id, name, email")(client),
             Postgrest.eq("email", email),
             Postgrest.executeMaybeSingle()
           )
         )
       );
 
-    expectTypeOf(result("a@b.com")).toEqualTypeOf<
-      Effect.Effect<Option.Option<UserRow>, PostgrestError, Client.Client>
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      Option.Option<UserRow>
     >();
+    expectTypeOf<
+      EffectError<ReturnType<typeof result>>
+    >().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      EffectContext<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeMaybeSingleWithSchema decodes with schema", () => {
@@ -219,15 +279,26 @@ describe("executeMaybeSingle", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, email"),
+            Postgrest.from("users", "id, name, email")(client),
             Postgrest.eq("email", email),
             Postgrest.executeMaybeSingleWithSchema(UserSchema)
           )
         )
       );
 
-    expectTypeOf(result("a@b.com")).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      Option.Option<{
+        readonly id: number;
+        readonly name: string;
+        readonly email: string;
+      }>
+    >();
+    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestError | Schema.SchemaError
+    >();
+    expectTypeOf<
+      EffectContext<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeMaybeSingleWithSchema composes with filters", () => {
@@ -235,8 +306,7 @@ describe("executeMaybeSingle", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, email"),
+            Postgrest.from("users", "id, name, email")(client),
             Postgrest.eq("email", email),
             Postgrest.is("deleted_at", null),
             Postgrest.executeMaybeSingleWithSchema(UserSchema)
@@ -244,7 +314,19 @@ describe("executeMaybeSingle", () => {
         )
       );
 
-    expectTypeOf(result("a@b.com")).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      Option.Option<{
+        readonly id: number;
+        readonly name: string;
+        readonly email: string;
+      }>
+    >();
+    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestError | Schema.SchemaError
+    >();
+    expectTypeOf<
+      EffectContext<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -253,33 +335,14 @@ describe("executeMaybeSingle", () => {
 // ---------------------------------------------------------------------------
 
 describe("insert", () => {
-  it("insert + select + executeSingle compiles", () => {
+  it("insert + execute compiles", () => {
     const result = (newUser: { name: string; email: string }) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
             Postgrest.table("users")(client),
             Postgrest.insert(newUser),
-            Postgrest.select("id, name, email"),
-            Postgrest.executeSingle()
-          )
-        )
-      );
-
-    expectTypeOf(
-      result({ name: "Alice", email: "alice@example.com" })
-    ).toEqualTypeOf<Effect.Effect<UserRow, PostgrestError, Client.Client>>();
-  });
-
-  it("insert + select + executeSingleWithSchema compiles", () => {
-    const result = (newUser: { name: string; email: string }) =>
-      Client.getClient<Database>().pipe(
-        Effect.flatMap((client) =>
-          pipe(
-            Postgrest.table("users")(client),
-            Postgrest.insert(newUser),
-            Postgrest.select("id, name, email"),
-            Postgrest.executeSingleWithSchema(UserSchema)
+            Postgrest.execute
           )
         )
       );
@@ -287,33 +350,14 @@ describe("insert", () => {
     expectTypeOf(result({ name: "Alice", email: "a@b.com" })).not.toBeNever();
   });
 
-  it("bulk insert + select + executeMultiple compiles", () => {
+  it("bulk insert + execute compiles", () => {
     const result = (users: Array<{ name: string; email: string }>) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
             Postgrest.table("users")(client),
             Postgrest.insert(users),
-            Postgrest.select("id, name, email"),
-            Postgrest.executeMultiple()
-          )
-        )
-      );
-
-    expectTypeOf(result([])).toEqualTypeOf<
-      Effect.Effect<UserRow[], PostgrestError, Client.Client>
-    >();
-  });
-
-  it("bulk insert + select + executeMultipleWithSchema compiles", () => {
-    const result = (users: Array<{ name: string; email: string }>) =>
-      Client.getClient<Database>().pipe(
-        Effect.flatMap((client) =>
-          pipe(
-            Postgrest.table("users")(client),
-            Postgrest.insert(users),
-            Postgrest.select("id, name, email"),
-            Postgrest.executeMultipleWithSchema(UserSchema)
+            Postgrest.execute
           )
         )
       );
@@ -323,7 +367,7 @@ describe("insert", () => {
 });
 
 describe("update", () => {
-  it("update + filter + select + executeSingle compiles", () => {
+  it("update + filter + execute compiles", () => {
     const result = (userId: number, newName: string) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
@@ -331,27 +375,7 @@ describe("update", () => {
             Postgrest.table("users")(client),
             Postgrest.update({ name: newName }),
             Postgrest.eq("id", userId),
-            Postgrest.select("id, name"),
-            Postgrest.executeSingle()
-          )
-        )
-      );
-
-    expectTypeOf(result(1, "Alice")).toEqualTypeOf<
-      Effect.Effect<UserIdNameRow, PostgrestError, Client.Client>
-    >();
-  });
-
-  it("update + filter + select + executeSingleWithSchema compiles", () => {
-    const result = (userId: number, newName: string) =>
-      Client.getClient<Database>().pipe(
-        Effect.flatMap((client) =>
-          pipe(
-            Postgrest.table("users")(client),
-            Postgrest.update({ name: newName }),
-            Postgrest.eq("id", userId),
-            Postgrest.select("id, name"),
-            Postgrest.executeSingleWithSchema(UserIdNameSchema)
+            Postgrest.execute
           )
         )
       );
@@ -361,27 +385,24 @@ describe("update", () => {
 });
 
 describe("upsert", () => {
-  it("upsert + select + executeSingle compiles", () => {
+  it("upsert + execute compiles", () => {
     const result = (user: { email: string; name: string }) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
             Postgrest.table("users")(client),
             Postgrest.upsert(user, { onConflict: "email" }),
-            Postgrest.select("id, name, email"),
-            Postgrest.executeSingle()
+            Postgrest.execute
           )
         )
       );
 
-    expectTypeOf(result({ email: "a@b.com", name: "Alice" })).toEqualTypeOf<
-      Effect.Effect<UserRow, PostgrestError, Client.Client>
-    >();
+    expectTypeOf(result({ email: "a@b.com", name: "Alice" })).not.toBeNever();
   });
 });
 
 describe("delete", () => {
-  it("delete_ + filter + execute compiles", () => {
+  it("delete_ + filter + execute returns raw response", () => {
     const result = (userId: number) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
@@ -394,26 +415,15 @@ describe("delete", () => {
         )
       );
 
-    expectTypeOf(result(1)).not.toBeNever();
-  });
-
-  it("delete_ + filter + select + executeSingle compiles", () => {
-    const result = (userId: number) =>
-      Client.getClient<Database>().pipe(
-        Effect.flatMap((client) =>
-          pipe(
-            Postgrest.table("users")(client),
-            Postgrest.delete_(),
-            Postgrest.eq("id", userId),
-            Postgrest.select("id, name, email"),
-            Postgrest.executeSingle()
-          )
-        )
-      );
-
-    expectTypeOf(result(1)).toEqualTypeOf<
-      Effect.Effect<UserRow, PostgrestError, Client.Client>
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestSingleResponse<null>
     >();
+    expectTypeOf<
+      EffectError<ReturnType<typeof result>>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      EffectContext<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -427,8 +437,7 @@ describe("raw execute with manual transforms", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name"),
+            Postgrest.from("users", "id, name")(client),
             Postgrest.eq("id", userId),
             Postgrest.asSingle(),
             Postgrest.execute
@@ -436,7 +445,9 @@ describe("raw execute with manual transforms", () => {
         )
       );
 
-    expectTypeOf(result(1)).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestSingleResponse<UserIdNameRow>
+    >();
   });
 
   it("asMaybeSingle() + execute compiles", () => {
@@ -444,8 +455,7 @@ describe("raw execute with manual transforms", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name"),
+            Postgrest.from("users", "id, name")(client),
             Postgrest.eq("email", email),
             Postgrest.asMaybeSingle(),
             Postgrest.execute
@@ -453,7 +463,9 @@ describe("raw execute with manual transforms", () => {
         )
       );
 
-    expectTypeOf(result("a@b.com")).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestSingleResponse<UserIdNameRow | null>
+    >();
   });
 });
 
@@ -462,7 +474,7 @@ describe("raw execute with manual transforms", () => {
 // ---------------------------------------------------------------------------
 
 describe("filters", () => {
-  it("complex filter chain compiles", () => {
+  it("complex filter chain preserves the exact row type", () => {
     const result = (
       minAge: number,
       maxAge: number,
@@ -472,8 +484,7 @@ describe("filters", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, age, role"),
+            Postgrest.from("users", "id, name, age, role")(client),
             Postgrest.gte("age", minAge),
             Postgrest.lte("age", maxAge),
             Postgrest.ilike("name", namePattern),
@@ -487,67 +498,81 @@ describe("filters", () => {
         )
       );
 
-    expectTypeOf(result(18, 65, "A%", ["admin"])).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      Array<{
+        id: number;
+        name: string;
+        age: number | null;
+        role: string;
+      }>
+    >();
+    expectTypeOf<
+      EffectError<ReturnType<typeof result>>
+    >().toEqualTypeOf<PostgrestError>();
   });
 
-  it("or filter compiles", () => {
+  it("or filter preserves the row type", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name, role"),
+          Postgrest.from("users", "id, name, role")(client),
           Postgrest.or("role.eq.admin,role.eq.moderator"),
           Postgrest.executeMultiple()
         )
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      Array<{ id: number; name: string; role: string }>
+    >();
   });
 
-  it("not filter compiles", () => {
+  it("not filter preserves the row type", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name"),
+          Postgrest.from("users", "id, name")(client),
           Postgrest.not("name", "is", null),
           Postgrest.executeMultiple()
         )
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      UserIdNameRow[]
+    >();
   });
 
-  it("match filter compiles", () => {
+  it("match filter preserves the row type", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name, role"),
+          Postgrest.from("users", "id, name, role")(client),
           Postgrest.match({ role: "admin", active: true }),
           Postgrest.executeMultiple()
         )
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      Array<{ id: number; name: string; role: string }>
+    >();
   });
 
-  it("like filter compiles", () => {
+  it("like filter preserves the row type", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name"),
+          Postgrest.from("users", "id, name")(client),
           Postgrest.like("name", "A%"),
           Postgrest.executeMultiple()
         )
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      UserIdNameRow[]
+    >();
   });
 });
 
@@ -556,47 +581,54 @@ describe("filters", () => {
 // ---------------------------------------------------------------------------
 
 describe("pagination", () => {
-  it("range() compiles", () => {
+  it("range() preserves the row type", () => {
     const result = (page: number, pageSize: number) => {
-      const from = page * pageSize;
-      const to = from + pageSize - 1;
+      const offset = page * pageSize;
+      const to = offset + pageSize - 1;
       return Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, email"),
+            Postgrest.from("users", "id, name, email")(client),
             Postgrest.order("created_at", { ascending: false }),
-            Postgrest.range(from, to),
+            Postgrest.range(offset, to),
             Postgrest.executeMultiple()
           )
         )
       );
     };
 
-    expectTypeOf(result(0, 10)).toEqualTypeOf<
-      Effect.Effect<UserRow[], PostgrestError, Client.Client>
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      UserRow[]
     >();
   });
 
   it("range() with filter + schema compiles", () => {
     const result = (page: number, pageSize: number) => {
-      const from = page * pageSize;
-      const to = from + pageSize - 1;
+      const offset = page * pageSize;
+      const to = offset + pageSize - 1;
       return Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name, email"),
+            Postgrest.from("users", "id, name, email")(client),
             Postgrest.eq("active", true),
             Postgrest.order("created_at", { ascending: false }),
-            Postgrest.range(from, to),
+            Postgrest.range(offset, to),
             Postgrest.executeMultipleWithSchema(UserSchema)
           )
         )
       );
     };
 
-    expectTypeOf(result(0, 10)).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      Array<{
+        readonly id: number;
+        readonly name: string;
+        readonly email: string;
+      }>
+    >();
+    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestError | Schema.SchemaError
+    >();
   });
 });
 
@@ -608,15 +640,13 @@ describe("backward compatibility", () => {
   it("deprecated multiple() alias compiles", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
-        pipe(
-          Postgrest.table("users")(client),
-          Postgrest.select("id, name"),
-          Postgrest.multiple()
-        )
+        pipe(Postgrest.from("users", "id, name")(client), Postgrest.multiple())
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+      UserIdNameRow[]
+    >();
   });
 
   it("deprecated single() alias compiles", () => {
@@ -624,15 +654,16 @@ describe("backward compatibility", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name"),
+            Postgrest.from("users", "id, name")(client),
             Postgrest.eq("id", userId),
             Postgrest.single()
           )
         )
       );
 
-    expectTypeOf(result(1)).not.toBeNever();
+    expectTypeOf<
+      EffectSuccess<ReturnType<typeof result>>
+    >().toEqualTypeOf<UserIdNameRow>();
   });
 
   it("deprecated maybeSingle() alias compiles", () => {
@@ -640,17 +671,15 @@ describe("backward compatibility", () => {
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
           pipe(
-            Postgrest.table("users")(client),
-            Postgrest.select("id, name"),
+            Postgrest.from("users", "id, name")(client),
             Postgrest.eq("email", email),
             Postgrest.maybeSingle()
           )
         )
       );
 
-    expectTypeOf(result("a@b.com")).not.toBeNever();
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+      Option.Option<UserIdNameRow>
+    >();
   });
 });
-
-// Suppress unused-import warnings for type imports used only in expectTypeOf.
-export type { UserWithRoleRow };
