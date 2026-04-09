@@ -30,9 +30,8 @@ export type { PostgrestQueryBuilder } from "@supabase/postgrest-js";
  * This is used by the execute functions to infer the row type from a properly-
  * typed builder produced by {@link from}.
  */
-type InferRow<B> = B extends PromiseLike<PostgrestResponse<infer T>> ? T : unknown;
-
-
+type InferRow<B> =
+  B extends PromiseLike<PostgrestResponse<infer T>> ? T : unknown;
 
 // ---------------------------------------------------------------------------
 // Builder entry point
@@ -119,7 +118,7 @@ export const from =
   <T extends string, Q extends string = "*">(
     tableName: T,
     columns?: Q,
-    options?: { head?: boolean; count?: "exact" | "planned" | "estimated" },
+    options?: { head?: boolean; count?: "exact" | "planned" | "estimated" }
   ) =>
   <DB>(client: SupabaseClient<DB>) =>
     client.from(tableName).select(columns, options);
@@ -1138,7 +1137,13 @@ export const range =
  */
 export const asSingle =
   () =>
-  <B extends PromiseLike<PostgrestResponse<any>> & { single: (...args: any[]) => any }>(builder: B) =>
+  <
+    B extends PromiseLike<PostgrestResponse<any>> & {
+      single: (...args: any[]) => any;
+    },
+  >(
+    builder: B
+  ) =>
     builder.single() as PromiseLike<PostgrestSingleResponse<InferRow<B>>>;
 
 /**
@@ -1178,8 +1183,16 @@ export const asSingle =
  */
 export const asMaybeSingle =
   () =>
-  <B extends PromiseLike<PostgrestResponse<any>> & { maybeSingle: (...args: any[]) => any }>(builder: B) =>
-    builder.maybeSingle() as PromiseLike<PostgrestSingleResponse<InferRow<B> | null>>;
+  <
+    B extends PromiseLike<PostgrestResponse<any>> & {
+      maybeSingle: (...args: any[]) => any;
+    },
+  >(
+    builder: B
+  ) =>
+    builder.maybeSingle() as PromiseLike<
+      PostgrestSingleResponse<InferRow<B> | null>
+    >;
 
 /**
  * Converts the result to CSV format.
@@ -1427,13 +1440,19 @@ export const executeFilterMapMultipleWithSchema =
  */
 export const executeSingle =
   () =>
-  <B extends PromiseLike<PostgrestResponse<any>> & { single: (...args: any[]) => any }>(
+  <
+    B extends PromiseLike<PostgrestResponse<any>> & {
+      single: (...args: any[]) => any;
+    },
+  >(
     builder: B
   ): Effect.Effect<InferRow<B>, PostgrestError> =>
     pipe(
       Effect.promise(() => builder.single().then((r: any) => r)),
       Effect.flatMap((response) =>
-        PgResponse.flatMapSingle()(response as PostgrestSingleResponse<InferRow<B>>)
+        PgResponse.flatMapSingle()(
+          response as PostgrestSingleResponse<InferRow<B>>
+        )
       )
     );
 
@@ -1472,7 +1491,9 @@ export const executeSingle =
 export const executeSingleWithSchema =
   <A, I = A>(schema: PureSchemaWithEncodedType<A, I>) =>
   (
-    builder: PromiseLike<PostgrestResponse<any>> & { single: (...args: any[]) => any }
+    builder: PromiseLike<PostgrestResponse<any>> & {
+      single: (...args: any[]) => any;
+    }
   ): Effect.Effect<A, PostgrestError | Schema.SchemaError> =>
     pipe(
       Effect.promise(() => builder.single().then((r: any) => r)),
@@ -1509,7 +1530,11 @@ export const executeSingleWithSchema =
  */
 export const executeMaybeSingle =
   () =>
-  <B extends PromiseLike<PostgrestResponse<any>> & { maybeSingle: (...args: any[]) => any }>(
+  <
+    B extends PromiseLike<PostgrestResponse<any>> & {
+      maybeSingle: (...args: any[]) => any;
+    },
+  >(
     builder: B
   ): Effect.Effect<Option.Option<InferRow<B>>, PostgrestError> =>
     pipe(
@@ -1559,7 +1584,9 @@ export const executeMaybeSingle =
 export const executeMaybeSingleWithSchema =
   <A, I = A>(schema: PureSchemaWithEncodedType<A, I>) =>
   (
-    builder: PromiseLike<PostgrestResponse<any>> & { maybeSingle: (...args: any[]) => any }
+    builder: PromiseLike<PostgrestResponse<any>> & {
+      maybeSingle: (...args: any[]) => any;
+    }
   ): Effect.Effect<Option.Option<A>, PostgrestError | Schema.SchemaError> =>
     pipe(
       Effect.promise(() => builder.maybeSingle().then((r: any) => r)),
