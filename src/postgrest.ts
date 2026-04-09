@@ -1138,8 +1138,8 @@ export const range =
  */
 export const asSingle =
   () =>
-  <B extends { single: (...args: any[]) => any }>(builder: B) =>
-    builder.single() as ReturnType<B["single"]>;
+  <B extends PromiseLike<PostgrestResponse<any>> & { single: (...args: any[]) => any }>(builder: B) =>
+    builder.single() as PromiseLike<PostgrestSingleResponse<InferRow<B>>>;
 
 /**
  * Narrows the builder result type to a **nullable single row**.
@@ -1178,8 +1178,8 @@ export const asSingle =
  */
 export const asMaybeSingle =
   () =>
-  <B extends { maybeSingle: (...args: any[]) => any }>(builder: B) =>
-    builder.maybeSingle() as ReturnType<B["maybeSingle"]>;
+  <B extends PromiseLike<PostgrestResponse<any>> & { maybeSingle: (...args: any[]) => any }>(builder: B) =>
+    builder.maybeSingle() as PromiseLike<PostgrestSingleResponse<InferRow<B> | null>>;
 
 /**
  * Converts the result to CSV format.

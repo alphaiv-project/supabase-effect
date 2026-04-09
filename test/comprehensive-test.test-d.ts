@@ -382,6 +382,29 @@ describe("update", () => {
 
     expectTypeOf(result(1, "Alice")).not.toBeNever();
   });
+
+  it("update + select + executeSingleWithSchema compiles", () => {
+    const result = (userId: number, newName: string) =>
+      Client.getClient<Database>().pipe(
+        Effect.flatMap((client) =>
+          pipe(
+            Postgrest.table("users")(client),
+            Postgrest.update({ name: newName }),
+            Postgrest.eq("id", userId),
+            Postgrest.select("id, name"),
+            Postgrest.executeSingleWithSchema(UserIdNameSchema)
+          )
+        )
+      );
+
+    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<{
+      readonly id: number;
+      readonly name: string;
+    }>();
+    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestError | Schema.SchemaError
+    >();
+  });
 });
 
 describe("upsert", () => {
