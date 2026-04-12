@@ -15,7 +15,6 @@ import type { Database } from "./test-database.types";
 import * as Client from "../src/client";
 import * as Postgrest from "../src/postgrest";
 import type { PostgrestError } from "../src/postgrest-error";
-import type { EffectSuccess, EffectError, EffectContext } from "./test-util";
 
 // ---------------------------------------------------------------------------
 // Shared schemas
@@ -57,9 +56,11 @@ describe("executeMultiple", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<UserRow[]>();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<UserRow[]>();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeMultipleWithSchema decodes with schema", () => {
@@ -72,17 +73,19 @@ describe("executeMultiple", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Array<{
         readonly id: number;
         readonly name: string;
         readonly email: string;
       }>
     >();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<
       PostgrestError | Schema.SchemaError
     >();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeMultipleWithSchema composes with filters", () => {
@@ -98,17 +101,19 @@ describe("executeMultiple", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Array<{
         readonly id: number;
         readonly name: string;
         readonly email: string;
       }>
     >();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<
       PostgrestError | Schema.SchemaError
     >();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeMultipleWithSchema composes with multiple filters", () => {
@@ -126,7 +131,7 @@ describe("executeMultiple", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       Array<{
         readonly id: number;
         readonly name: string;
@@ -134,11 +139,11 @@ describe("executeMultiple", () => {
         readonly role: string;
       }>
     >();
-    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Error<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestError | Schema.SchemaError
     >();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 
@@ -153,15 +158,17 @@ describe("executeMultiple", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Array<{
         readonly id: number;
         readonly name: string;
         readonly email: string;
       }>
     >();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -183,13 +190,13 @@ describe("executeSingle", () => {
       );
 
     expectTypeOf<
-      EffectSuccess<ReturnType<typeof result>>
+      Effect.Success<ReturnType<typeof result>>
     >().toEqualTypeOf<UserRow>();
     expectTypeOf<
-      EffectError<ReturnType<typeof result>>
+      Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<PostgrestError>();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 
@@ -205,16 +212,16 @@ describe("executeSingle", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<{
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<{
       readonly id: number;
       readonly name: string;
       readonly email: string;
     }>();
-    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Error<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestError | Schema.SchemaError
     >();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 
@@ -231,17 +238,17 @@ describe("executeSingle", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<{
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<{
       readonly id: number;
       readonly name: string;
       readonly email: string;
       readonly role: string;
     }>();
-    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Error<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestError | Schema.SchemaError
     >();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 });
@@ -263,14 +270,14 @@ describe("executeMaybeSingle", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       Option.Option<UserRow>
     >();
     expectTypeOf<
-      EffectError<ReturnType<typeof result>>
+      Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<PostgrestError>();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 
@@ -286,18 +293,18 @@ describe("executeMaybeSingle", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       Option.Option<{
         readonly id: number;
         readonly name: string;
         readonly email: string;
       }>
     >();
-    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Error<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestError | Schema.SchemaError
     >();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 
@@ -314,18 +321,18 @@ describe("executeMaybeSingle", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       Option.Option<{
         readonly id: number;
         readonly name: string;
         readonly email: string;
       }>
     >();
-    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Error<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestError | Schema.SchemaError
     >();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 });
@@ -335,7 +342,7 @@ describe("executeMaybeSingle", () => {
 // ---------------------------------------------------------------------------
 
 describe("insert", () => {
-  it("insert + execute compiles", () => {
+  it("insert + execute returns raw response", () => {
     const result = (newUser: { name: string; email: string }) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
@@ -347,10 +354,18 @@ describe("insert", () => {
         )
       );
 
-    expectTypeOf(result({ name: "Alice", email: "a@b.com" })).not.toBeNever();
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestSingleResponse<null>
+    >();
+    expectTypeOf<
+      Effect.Error<ReturnType<typeof result>>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Effect.Services<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 
-  it("bulk insert + execute compiles", () => {
+  it("bulk insert + execute returns raw response", () => {
     const result = (users: Array<{ name: string; email: string }>) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
@@ -362,12 +377,20 @@ describe("insert", () => {
         )
       );
 
-    expectTypeOf(result([])).not.toBeNever();
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestSingleResponse<null>
+    >();
+    expectTypeOf<
+      Effect.Error<ReturnType<typeof result>>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Effect.Services<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
 
 describe("update", () => {
-  it("update + filter + execute compiles", () => {
+  it("update + filter + execute returns raw response", () => {
     const result = (userId: number, newName: string) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
@@ -380,7 +403,15 @@ describe("update", () => {
         )
       );
 
-    expectTypeOf(result(1, "Alice")).not.toBeNever();
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestSingleResponse<null>
+    >();
+    expectTypeOf<
+      Effect.Error<ReturnType<typeof result>>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Effect.Services<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("update + select + executeSingleWithSchema compiles", () => {
@@ -397,18 +428,18 @@ describe("update", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<{
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<{
       readonly id: number;
       readonly name: string;
     }>();
-    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Error<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestError | Schema.SchemaError
     >();
   });
 });
 
 describe("upsert", () => {
-  it("upsert + execute compiles", () => {
+  it("upsert + execute returns raw response", () => {
     const result = (user: { email: string; name: string }) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
@@ -420,7 +451,15 @@ describe("upsert", () => {
         )
       );
 
-    expectTypeOf(result({ email: "a@b.com", name: "Alice" })).not.toBeNever();
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestSingleResponse<null>
+    >();
+    expectTypeOf<
+      Effect.Error<ReturnType<typeof result>>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Effect.Services<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -438,14 +477,14 @@ describe("delete", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestSingleResponse<null>
     >();
     expectTypeOf<
-      EffectError<ReturnType<typeof result>>
+      Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<never>();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 });
@@ -468,7 +507,7 @@ describe("raw execute with manual transforms", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestSingleResponse<UserIdNameRow>
     >();
   });
@@ -486,7 +525,7 @@ describe("raw execute with manual transforms", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestSingleResponse<UserIdNameRow | null>
     >();
   });
@@ -521,7 +560,7 @@ describe("filters", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       Array<{
         id: number;
         name: string;
@@ -530,7 +569,7 @@ describe("filters", () => {
       }>
     >();
     expectTypeOf<
-      EffectError<ReturnType<typeof result>>
+      Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<PostgrestError>();
   });
 
@@ -545,7 +584,7 @@ describe("filters", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Array<{ id: number; name: string; role: string }>
     >();
   });
@@ -561,7 +600,7 @@ describe("filters", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       UserIdNameRow[]
     >();
   });
@@ -577,7 +616,7 @@ describe("filters", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Array<{ id: number; name: string; role: string }>
     >();
   });
@@ -593,7 +632,7 @@ describe("filters", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       UserIdNameRow[]
     >();
   });
@@ -620,7 +659,7 @@ describe("pagination", () => {
       );
     };
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       UserRow[]
     >();
   });
@@ -642,14 +681,14 @@ describe("pagination", () => {
       );
     };
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       Array<{
         readonly id: number;
         readonly name: string;
         readonly email: string;
       }>
     >();
-    expectTypeOf<EffectError<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Error<ReturnType<typeof result>>>().toEqualTypeOf<
       PostgrestError | Schema.SchemaError
     >();
   });

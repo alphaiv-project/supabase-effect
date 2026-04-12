@@ -13,7 +13,6 @@ import type { Database } from "./test-database.types";
 import * as Client from "../src/client";
 import * as Postgrest from "../src/postgrest";
 import type { PostgrestError } from "../src/postgrest-error";
-import type { EffectSuccess, EffectError, EffectContext } from "./test-util";
 
 const clientLayer = Client.Client.browser(
   "https://example.supabase.co",
@@ -31,11 +30,13 @@ describe("basic select", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Array<{ id: number; name: string; email: string }>
     >();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("select * with filters and transforms returns full row type", () => {
@@ -51,11 +52,13 @@ describe("basic select", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Array<Database["public"]["Tables"]["users"]["Row"]>
     >();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -72,17 +75,17 @@ describe("single row queries", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<{
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<{
       id: number;
       name: string;
       email: string;
       role: string;
     }>();
     expectTypeOf<
-      EffectError<ReturnType<typeof result>>
+      Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<PostgrestError>();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 
@@ -98,20 +101,20 @@ describe("single row queries", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       Option.Option<{ id: number; name: string; email: string }>
     >();
     expectTypeOf<
-      EffectError<ReturnType<typeof result>>
+      Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<PostgrestError>();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 });
 
 describe("mutations", () => {
-  it("insert + select + executeSingle infers inserted-then-selected columns", () => {
+  it("insert + select + executeSingle loses column inference (returns unknown)", () => {
     const result = (newUser: { name: string; email: string }) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
@@ -124,13 +127,21 @@ describe("mutations", () => {
         )
       );
 
-    // NOTE: insert + select loses column-level type inference (returns unknown)
+    // insert + select loses column-level type inference (returns unknown)
     // because Postgrest.select cannot resolve overloads on a generic builder.
     // Use schema validation for typed mutation results.
-    expectTypeOf(result({ name: "Alice", email: "alice@example.com" })).not.toBeNever();
+    expectTypeOf<
+      Effect.Success<ReturnType<typeof result>>
+    >().toEqualTypeOf<unknown>();
+    expectTypeOf<
+      Effect.Error<ReturnType<typeof result>>
+    >().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 
-  it("update + select + executeSingle compiles", () => {
+  it("update + select + executeSingle loses column inference (returns unknown)", () => {
     const result = (userId: number, newName: string) =>
       Client.getClient<Database>().pipe(
         Effect.flatMap((client) =>
@@ -144,7 +155,15 @@ describe("mutations", () => {
         )
       );
 
-    expectTypeOf(result(1, "Alice Updated")).not.toBeNever();
+    expectTypeOf<
+      Effect.Success<ReturnType<typeof result>>
+    >().toEqualTypeOf<unknown>();
+    expectTypeOf<
+      Effect.Error<ReturnType<typeof result>>
+    >().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -164,7 +183,7 @@ describe("complex filters", () => {
         )
       );
 
-    expectTypeOf<EffectSuccess<ReturnType<typeof result>>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
       Array<{
         id: number;
         name: string;
@@ -173,10 +192,10 @@ describe("complex filters", () => {
       }>
     >();
     expectTypeOf<
-      EffectError<ReturnType<typeof result>>
+      Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<PostgrestError>();
     expectTypeOf<
-      EffectContext<ReturnType<typeof result>>
+      Effect.Services<ReturnType<typeof result>>
     >().toEqualTypeOf<Client.Client>();
   });
 });

@@ -10,11 +10,11 @@ import { describe, it, expectTypeOf } from "vitest";
 import { pipe } from "effect";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type { PostgrestSingleResponse } from "@supabase/supabase-js";
 import type { Database } from "./test-database.types";
 import * as Client from "../src/client";
 import * as Postgrest from "../src/postgrest";
 import type { PostgrestError } from "../src/postgrest-error";
-import type { EffectSuccess, EffectError, EffectContext } from "./test-util";
 
 // ---------------------------------------------------------------------------
 // Problem 1 — table type preservation via `from`
@@ -31,28 +31,29 @@ describe("table type preservation", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Array<{ id: number; name: string }>
     >();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("from('users', 'id') is narrowed to a single-column type", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
-        pipe(
-          Postgrest.from("users", "id")(client),
-          Postgrest.executeMultiple()
-        )
+        pipe(Postgrest.from("users", "id")(client), Postgrest.executeMultiple())
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Array<{ id: number }>
     >();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeSingle returns a concrete typed row", () => {
@@ -66,14 +67,16 @@ describe("table type preservation", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<{
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<{
       id: number;
       name: string;
       email: string;
       role: string;
     }>();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
   it("executeMaybeSingle wraps in Option<T> with a concrete T", () => {
@@ -87,11 +90,13 @@ describe("table type preservation", () => {
       )
     );
 
-    expectTypeOf<EffectSuccess<typeof result>>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
       Option.Option<{ id: number; name: string }>
     >();
-    expectTypeOf<EffectError<typeof result>>().toEqualTypeOf<PostgrestError>();
-    expectTypeOf<EffectContext<typeof result>>().toEqualTypeOf<Client.Client>();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<PostgrestError>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
 
@@ -100,7 +105,7 @@ describe("table type preservation", () => {
 // ---------------------------------------------------------------------------
 
 describe("mutation type safety", () => {
-  it("insert with valid Insert fields compiles", () => {
+  it("insert with valid Insert fields returns raw response", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
@@ -111,10 +116,16 @@ describe("mutation type safety", () => {
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
+      PostgrestSingleResponse<null>
+    >();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<never>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
-  it("bulk insert (array) with valid Insert fields compiles", () => {
+  it("bulk insert (array) with valid Insert fields returns raw response", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
@@ -128,10 +139,16 @@ describe("mutation type safety", () => {
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
+      PostgrestSingleResponse<null>
+    >();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<never>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
-  it("update with valid Update fields compiles", () => {
+  it("update with valid Update fields returns raw response", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
@@ -143,10 +160,16 @@ describe("mutation type safety", () => {
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
+      PostgrestSingleResponse<null>
+    >();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<never>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 
-  it("upsert with valid Insert fields compiles", () => {
+  it("upsert with valid Insert fields returns raw response", () => {
     const result = Client.getClient<Database>().pipe(
       Effect.flatMap((client) =>
         pipe(
@@ -160,6 +183,12 @@ describe("mutation type safety", () => {
       )
     );
 
-    expectTypeOf(result).not.toBeNever();
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
+      PostgrestSingleResponse<null>
+    >();
+    expectTypeOf<Effect.Error<typeof result>>().toEqualTypeOf<never>();
+    expectTypeOf<
+      Effect.Services<typeof result>
+    >().toEqualTypeOf<Client.Client>();
   });
 });
