@@ -21,14 +21,11 @@ import type { PostgrestError } from "../src/postgrest-error";
 // ---------------------------------------------------------------------------
 
 describe("table type preservation", () => {
-  it("from('users', 'id, name') is narrowed to exactly those columns", () => {
-    const result = Client.getClient<Database>().pipe(
-      Effect.flatMap((client) =>
-        pipe(
-          Postgrest.from("users", "id, name")(client),
-          Postgrest.executeMultiple()
-        )
-      )
+  it("from('users') + select('id, name') is narrowed to exactly those columns", () => {
+    const result = pipe(
+      Postgrest.from("users"),
+      Postgrest.select("id, name"),
+      Postgrest.executeMultiple()
     );
 
     expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
@@ -40,11 +37,11 @@ describe("table type preservation", () => {
     >().toEqualTypeOf<Client.Client>();
   });
 
-  it("from('users', 'id') is narrowed to a single-column type", () => {
-    const result = Client.getClient<Database>().pipe(
-      Effect.flatMap((client) =>
-        pipe(Postgrest.from("users", "id")(client), Postgrest.executeMultiple())
-      )
+  it("from('users') + select('id') is narrowed to a single-column type", () => {
+    const result = pipe(
+      Postgrest.from("users"),
+      Postgrest.select("id"),
+      Postgrest.executeMultiple()
     );
 
     expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
@@ -57,14 +54,11 @@ describe("table type preservation", () => {
   });
 
   it("executeSingle returns a concrete typed row", () => {
-    const result = Client.getClient<Database>().pipe(
-      Effect.flatMap((client) =>
-        pipe(
-          Postgrest.from("users", "id, name, email, role")(client),
-          Postgrest.eq("id", 1),
-          Postgrest.executeSingle()
-        )
-      )
+    const result = pipe(
+      Postgrest.from("users"),
+      Postgrest.select("id, name, email, role"),
+      Postgrest.eq("id", 1),
+      Postgrest.executeSingle()
     );
 
     expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<{
@@ -80,14 +74,11 @@ describe("table type preservation", () => {
   });
 
   it("executeMaybeSingle wraps in Option<T> with a concrete T", () => {
-    const result = Client.getClient<Database>().pipe(
-      Effect.flatMap((client) =>
-        pipe(
-          Postgrest.from("users", "id, name")(client),
-          Postgrest.eq("email", "alice@example.com"),
-          Postgrest.executeMaybeSingle()
-        )
-      )
+    const result = pipe(
+      Postgrest.from("users"),
+      Postgrest.select("id, name"),
+      Postgrest.eq("email", "alice@example.com"),
+      Postgrest.executeMaybeSingle()
     );
 
     expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
@@ -106,14 +97,10 @@ describe("table type preservation", () => {
 
 describe("mutation type safety", () => {
   it("insert with valid Insert fields returns raw response", () => {
-    const result = Client.getClient<Database>().pipe(
-      Effect.flatMap((client) =>
-        pipe(
-          Postgrest.table("users")(client),
-          Postgrest.insert({ name: "Alice", email: "alice@example.com" }),
-          Postgrest.execute
-        )
-      )
+    const result = pipe(
+      Postgrest.from("users"),
+      Postgrest.insert({ name: "Alice", email: "alice@example.com" }),
+      Postgrest.execute
     );
 
     expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
@@ -126,17 +113,13 @@ describe("mutation type safety", () => {
   });
 
   it("bulk insert (array) with valid Insert fields returns raw response", () => {
-    const result = Client.getClient<Database>().pipe(
-      Effect.flatMap((client) =>
-        pipe(
-          Postgrest.table("users")(client),
-          Postgrest.insert([
-            { name: "Alice", email: "alice@example.com" },
-            { name: "Bob", email: "bob@example.com" },
-          ]),
-          Postgrest.execute
-        )
-      )
+    const result = pipe(
+      Postgrest.from("users"),
+      Postgrest.insert([
+        { name: "Alice", email: "alice@example.com" },
+        { name: "Bob", email: "bob@example.com" },
+      ]),
+      Postgrest.execute
     );
 
     expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
@@ -149,15 +132,11 @@ describe("mutation type safety", () => {
   });
 
   it("update with valid Update fields returns raw response", () => {
-    const result = Client.getClient<Database>().pipe(
-      Effect.flatMap((client) =>
-        pipe(
-          Postgrest.table("users")(client),
-          Postgrest.update({ name: "Alice Updated" }),
-          Postgrest.eq("id", 1),
-          Postgrest.execute
-        )
-      )
+    const result = pipe(
+      Postgrest.from("users"),
+      Postgrest.update({ name: "Alice Updated" }),
+      Postgrest.eq("id", 1),
+      Postgrest.execute
     );
 
     expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
@@ -170,17 +149,13 @@ describe("mutation type safety", () => {
   });
 
   it("upsert with valid Insert fields returns raw response", () => {
-    const result = Client.getClient<Database>().pipe(
-      Effect.flatMap((client) =>
-        pipe(
-          Postgrest.table("users")(client),
-          Postgrest.upsert(
-            { name: "Alice", email: "alice@example.com" },
-            { onConflict: "email" }
-          ),
-          Postgrest.execute
-        )
-      )
+    const result = pipe(
+      Postgrest.from("users"),
+      Postgrest.upsert(
+        { name: "Alice", email: "alice@example.com" },
+        { onConflict: "email" }
+      ),
+      Postgrest.execute
     );
 
     expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
