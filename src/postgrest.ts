@@ -902,12 +902,7 @@ export const executeMultipleWithSchema =
     pipe(
       effect,
       Effect.flatMap((builder) => Effect.promise(() => builder.then((r) => r))),
-      Effect.flatMap((response) =>
-        PgResponse.flatMapMultipleWithSchema(
-          schema,
-          concurrency
-        )(response as PostgrestResponse<I>)
-      )
+      Effect.flatMap(PgResponse.flatMapMultipleWithSchema(schema, concurrency))
     );
 
 /**
@@ -935,11 +930,8 @@ export const executeFilterMapMultipleWithSchema =
     pipe(
       effect,
       Effect.flatMap((builder) => Effect.promise(() => builder.then((r) => r))),
-      Effect.flatMap((response) =>
-        PgResponse.filterMapMultipleWithSchema(
-          schema,
-          concurrency
-        )(response as PostgrestResponse<I>)
+      Effect.flatMap(
+        PgResponse.filterMapMultipleWithSchema(schema, concurrency)
       )
     );
 
