@@ -5,6 +5,11 @@ import type {
   PostgrestMaybeSingleResponse,
   PostgrestResponse,
 } from "@supabase/supabase-js";
+import type {
+  PostgrestQueryBuilder,
+  PostgrestFilterBuilder,
+  UnstableGetResult as GetResult,
+} from "@supabase/postgrest-js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -33,34 +38,99 @@ export type { PostgrestQueryBuilder } from "@supabase/postgrest-js";
 type InferRow<B> =
   B extends PromiseLike<PostgrestResponse<infer T>> ? T : unknown;
 
+/**
+ * Extracts builder type parameters and computes the select result type using
+ * Supabase's GetResult. This enables type inference for pipe-able select().
+ */
+type ComputeSelectResult<QB, Q extends string> =
+  // Extract from PostgrestQueryBuilder
+  QB extends PostgrestQueryBuilder<
+    infer ClientOptions,
+    infer Schema,
+    infer Relation,
+    infer RelationName,
+    infer Relationships
+  >
+    ? PostgrestFilterBuilder<
+        ClientOptions,
+        Schema,
+        Relation extends { Row: infer R } ? R : never,
+        GetResult<
+          Schema,
+          Relation extends { Row: infer R extends Record<string, unknown> }
+            ? R
+            : never,
+          RelationName,
+          Relationships,
+          Q,
+          ClientOptions
+        >[],
+        RelationName,
+        Relationships,
+        "GET"
+      >
+    : // Extract from PostgrestFilterBuilder (for chaining after mutations)
+      QB extends PostgrestFilterBuilder<
+          infer ClientOptions,
+          infer Schema,
+          infer Row,
+          any,
+          infer RelationName,
+          infer Relationships,
+          any
+        >
+      ? PostgrestFilterBuilder<
+          ClientOptions,
+          Schema,
+          Row,
+          GetResult<
+            Schema,
+            Row extends Record<string, unknown> ? Row : never,
+            RelationName,
+            Relationships,
+            Q,
+            ClientOptions
+          >[],
+          RelationName,
+          Relationships,
+          "GET"
+        >
+      : unknown;
+
 // ---------------------------------------------------------------------------
 // Builder entry point
 // ---------------------------------------------------------------------------
 
 /**
- * Creates a typed PostgREST select query for the given table.
+ * Creates a PostgREST query builder for the given table.
  *
- * This is the **recommended entry point** for read queries. It accesses the
- * {@link Client} service from the Effect context, calls `client.from(tableName).select(columns)`,
- * and returns a typed builder wrapped in an `Effect`.
+ * This is the **recommended entry point** for all queries. It accesses the
+ * {@link Client} service from the Effect context, calls `client.from(tableName)`,
+ * and returns a typed query builder wrapped in an `Effect`.
  *
- * Supabase's type-level query parser computes the exact result type from the
- * column string, preserving full column inference.
- *
- * For mutations (`insert`, `update`, `upsert`, `delete_`), use {@link table} instead.
+ * Chain with {@link select} for read queries, or {@link insert}, {@link update},
+ * {@link upsert}, {@link delete_} for mutations.
  *
  * @typeParam DB - The generated Supabase database schema type.
  * @param tableName - The name of the table or view to query.
- * @param columns - A comma-separated string of columns to select. Defaults to `"*"`.
- * @param options - Optional settings for head/count queries.
  *
  * @example
  * ```ts
+ * // Read query
  * pipe(
- *   Postgrest.from<Database>()("users", "id, name, email"),
+ *   Postgrest.from<Database>()("users"),
+ *   Postgrest.select("id, name, email"),
  *   Postgrest.eq("active", true),
  *   Postgrest.order("name"),
  *   Postgrest.executeMultiple(),
+ * )
+ *
+ * // Mutation
+ * pipe(
+ *   Postgrest.from<Database>()("users"),
+ *   Postgrest.insert({ name: "Alice", email: "alice@example.com" }),
+ *   Postgrest.select("id, name"),
+ *   Postgrest.executeSingle(),
  * )
  * ```
  *
@@ -68,40 +138,20 @@ type InferRow<B> =
  */
 export const from =
   <DB>() =>
-  <T extends string, Q extends string = "*">(
-    tableName: T,
-    columns?: Q,
-    options?: { head?: boolean; count?: "exact" | "planned" | "estimated" }
-  ) =>
-    Effect.map(getClient<DB>(), (client) =>
-      client.from(tableName).select(columns, options)
-    );
+  <T extends string>(tableName: T) =>
+    Effect.map(getClient<DB>(), (client) => client.from(tableName));
 
 /**
- * Creates a PostgREST query builder for the given table, without applying a select.
- *
- * Use this as the entry point for **mutations** (`insert`, `update`, `upsert`, `delete_`).
- * For read queries, use {@link from} instead which includes column selection and
- * preserves type-level inference.
+ * Alias for {@link from}. Creates a PostgREST query builder for the given table.
  *
  * @typeParam DB - The generated Supabase database schema type.
  * @param tableName - The name of the table or view.
  *
- * @example
- * ```ts
- * pipe(
- *   Postgrest.table<Database>()("users"),
- *   Postgrest.insert({ name: "Alice", email: "alice@example.com" }),
- *   Postgrest.execute,
- * )
- * ```
+ * @deprecated Use {@link from} instead. `table` will be removed in a future version.
  *
- * @since 0.3.0
+ * @since 0.1.0
  */
-export const table =
-  <DB>() =>
-  <T extends string>(tableName: T) =>
-    Effect.map(getClient<DB>(), (client) => client.from(tableName));
+export const table = from;
 
 // ---------------------------------------------------------------------------
 // Query starters
@@ -139,10 +189,10 @@ export const select =
   ) =>
   <QB extends { select: (...args: any[]) => any }, E, R>(
     effect: Effect.Effect<QB, E, R>
-  ) =>
+  ): Effect.Effect<ComputeSelectResult<QB, Q>, E, R> =>
     Effect.map(
       effect,
-      (qb) => qb.select(columns, options) as ReturnType<QB["select"]>
+      (qb) => qb.select(columns, options) as ComputeSelectResult<QB, Q>
     );
 
 /**

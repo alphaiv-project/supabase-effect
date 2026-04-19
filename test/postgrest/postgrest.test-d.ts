@@ -48,9 +48,10 @@ type UserIdNameRow = { id: number; name: string };
 // ---------------------------------------------------------------------------
 
 describe("column inference", () => {
-  it("from() with columns preserves column inference", () => {
+  it("from() + select() preserves column inference", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name"),
       Postgrest.executeMultiple()
     );
 
@@ -63,9 +64,10 @@ describe("column inference", () => {
     >().toEqualTypeOf<Client.Client>();
   });
 
-  it("from() narrows to a single column", () => {
+  it("from() + select() narrows to a single column", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id"),
       Postgrest.executeMultiple()
     );
 
@@ -74,9 +76,10 @@ describe("column inference", () => {
     >();
   });
 
-  it("from() with '*' returns the full row type", () => {
+  it("from() + select('*') returns the full row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "*"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("*"),
       Postgrest.eq("active", true),
       Postgrest.order("created_at", { ascending: false }),
       Postgrest.limit(10),
@@ -88,17 +91,17 @@ describe("column inference", () => {
     >();
   });
 
-  it("table() + select() loses column inference (returns unknown)", () => {
+  it("table() is a deprecated alias for from()", () => {
     const result = pipe(
       Postgrest.table<Database>()("users"),
       Postgrest.select("id, name"),
       Postgrest.executeMultiple()
     );
 
-    // table + select cannot resolve Supabase's overloaded .select() through
-    // a generic structural constraint — TypeScript returns unknown.
-    // Use from() with columns for read queries instead.
-    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<unknown[]>();
+    // table() is now just an alias for from(), both work with select()
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
+      Array<{ id: number; name: string }>
+    >();
   });
 });
 
@@ -109,7 +112,8 @@ describe("column inference", () => {
 describe("executeMultiple", () => {
   it("returns Array<T> from a typed table", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, email"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, email"),
       Postgrest.executeMultiple()
     );
 
@@ -122,7 +126,8 @@ describe("executeMultiple", () => {
 
   it("executeMultipleWithSchema decodes with schema", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, email"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, email"),
       Postgrest.executeMultipleWithSchema(UserSchema)
     );
 
@@ -143,7 +148,8 @@ describe("executeMultiple", () => {
 
   it("executeMultipleWithSchema composes with filters", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, email"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, email"),
       Postgrest.eq("active", true),
       Postgrest.order("name"),
       Postgrest.limit(10),
@@ -165,7 +171,8 @@ describe("executeMultiple", () => {
   it("executeMultipleWithSchema composes with multiple filters", () => {
     const result = (minAge: number, roles: string[]) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, email, role"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email, role"),
         Postgrest.gte("age", minAge),
         Postgrest.in_("role", roles),
         Postgrest.is("deleted_at", null),
@@ -188,7 +195,8 @@ describe("executeMultiple", () => {
 
   it("executeFilterMapMultipleWithSchema filters out decode failures", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, email"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, email"),
       Postgrest.eq("status", "active"),
       Postgrest.executeFilterMapMultipleWithSchema(UserSchema)
     );
@@ -212,7 +220,8 @@ describe("executeSingle", () => {
   it("auto-applies .single() and returns a typed row", () => {
     const result = (userId: number) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, email"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email"),
         Postgrest.eq("id", userId),
         Postgrest.executeSingle()
       );
@@ -231,7 +240,8 @@ describe("executeSingle", () => {
   it("executeSingleWithSchema decodes with schema", () => {
     const result = (userId: number) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, email"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email"),
         Postgrest.eq("id", userId),
         Postgrest.executeSingleWithSchema(UserSchema)
       );
@@ -249,7 +259,8 @@ describe("executeSingle", () => {
   it("executeSingleWithSchema composes with filters", () => {
     const result = (userId: number) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, email, role"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email, role"),
         Postgrest.eq("id", userId),
         Postgrest.is("deleted_at", null),
         Postgrest.executeSingleWithSchema(UserWithRoleSchema)
@@ -275,7 +286,8 @@ describe("executeMaybeSingle", () => {
   it("auto-applies .maybeSingle() and wraps result in Option", () => {
     const result = (email: string) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, email"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email"),
         Postgrest.eq("email", email),
         Postgrest.executeMaybeSingle()
       );
@@ -294,7 +306,8 @@ describe("executeMaybeSingle", () => {
   it("executeMaybeSingleWithSchema decodes with schema", () => {
     const result = (email: string) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, email"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email"),
         Postgrest.eq("email", email),
         Postgrest.executeMaybeSingleWithSchema(UserSchema)
       );
@@ -314,7 +327,7 @@ describe("executeMaybeSingle", () => {
   it("executeMaybeSingleWithSchema composes with filters", () => {
     const result = (email: string) =>
       pipe(
-        Postgrest.table<Database>()("users"),
+        Postgrest.from<Database>()("users"),
         Postgrest.select("id, name, email"),
         Postgrest.eq("email", email),
         Postgrest.is("deleted_at", null),
@@ -342,7 +355,8 @@ describe("raw execute with manual transforms", () => {
   it("asSingle() + execute compiles", () => {
     const result = (userId: number) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name"),
         Postgrest.eq("id", userId),
         Postgrest.asSingle(),
         Postgrest.execute
@@ -356,7 +370,8 @@ describe("raw execute with manual transforms", () => {
   it("asMaybeSingle() + execute compiles", () => {
     const result = (email: string) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name"),
         Postgrest.eq("email", email),
         Postgrest.asMaybeSingle(),
         Postgrest.execute
@@ -369,7 +384,8 @@ describe("raw execute with manual transforms", () => {
 
   it("asCsv() + execute compiles", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, email"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, email"),
       Postgrest.asCsv(),
       Postgrest.execute
     );
@@ -389,7 +405,7 @@ describe("insert", () => {
   it("insert + execute returns raw response", () => {
     const result = (newUser: { name: string; email: string }) =>
       pipe(
-        Postgrest.table<Database>()("users"),
+        Postgrest.from<Database>()("users"),
         Postgrest.insert(newUser),
         Postgrest.execute
       );
@@ -408,7 +424,7 @@ describe("insert", () => {
   it("bulk insert + execute returns raw response", () => {
     const result = (users: Array<{ name: string; email: string }>) =>
       pipe(
-        Postgrest.table<Database>()("users"),
+        Postgrest.from<Database>()("users"),
         Postgrest.insert(users),
         Postgrest.execute
       );
@@ -421,18 +437,21 @@ describe("insert", () => {
     >().toEqualTypeOf<never>();
   });
 
-  it("insert + select + executeSingle loses column inference (returns unknown)", () => {
+  it("insert + select + executeSingle preserves column inference", () => {
     const result = (newUser: { name: string; email: string }) =>
       pipe(
-        Postgrest.table<Database>()("users"),
+        Postgrest.from<Database>()("users"),
         Postgrest.insert(newUser),
         Postgrest.select("id, name, email, created_at"),
         Postgrest.executeSingle()
       );
 
-    expectTypeOf<
-      Effect.Success<ReturnType<typeof result>>
-    >().toEqualTypeOf<unknown>();
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<{
+      id: number;
+      name: string;
+      email: string;
+      created_at: string;
+    }>();
     expectTypeOf<
       Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<PostgrestError>();
@@ -443,7 +462,7 @@ describe("update", () => {
   it("update + filter + execute returns raw response", () => {
     const result = (userId: number, newName: string) =>
       pipe(
-        Postgrest.table<Database>()("users"),
+        Postgrest.from<Database>()("users"),
         Postgrest.update({ name: newName }),
         Postgrest.eq("id", userId),
         Postgrest.execute
@@ -460,7 +479,7 @@ describe("update", () => {
   it("update + select + executeSingleWithSchema compiles", () => {
     const result = (userId: number, newName: string) =>
       pipe(
-        Postgrest.table<Database>()("users"),
+        Postgrest.from<Database>()("users"),
         Postgrest.update({ name: newName }),
         Postgrest.eq("id", userId),
         Postgrest.select("id, name"),
@@ -476,19 +495,21 @@ describe("update", () => {
     >();
   });
 
-  it("update + select + executeSingle loses column inference (returns unknown)", () => {
+  it("update + select + executeSingle preserves column inference", () => {
     const result = (userId: number, newName: string) =>
       pipe(
-        Postgrest.table<Database>()("users"),
+        Postgrest.from<Database>()("users"),
         Postgrest.update({ name: newName }),
         Postgrest.eq("id", userId),
         Postgrest.select("id, name, updated_at"),
         Postgrest.executeSingle()
       );
 
-    expectTypeOf<
-      Effect.Success<ReturnType<typeof result>>
-    >().toEqualTypeOf<unknown>();
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<{
+      id: number;
+      name: string;
+      updated_at: string;
+    }>();
     expectTypeOf<
       Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<PostgrestError>();
@@ -499,7 +520,7 @@ describe("upsert", () => {
   it("upsert + execute returns raw response", () => {
     const result = (user: { email: string; name: string }) =>
       pipe(
-        Postgrest.table<Database>()("users"),
+        Postgrest.from<Database>()("users"),
         Postgrest.upsert(user, { onConflict: "email" }),
         Postgrest.execute
       );
@@ -511,13 +532,32 @@ describe("upsert", () => {
       Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<never>();
   });
+
+  it("upsert + select + executeSingle preserves column inference", () => {
+    const result = (user: { email: string; name: string }) =>
+      pipe(
+        Postgrest.from<Database>()("users"),
+        Postgrest.upsert(user, { onConflict: "email" }),
+        Postgrest.select("id, name, email"),
+        Postgrest.executeSingle()
+      );
+
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<{
+      id: number;
+      name: string;
+      email: string;
+    }>();
+    expectTypeOf<
+      Effect.Error<ReturnType<typeof result>>
+    >().toEqualTypeOf<PostgrestError>();
+  });
 });
 
 describe("delete", () => {
   it("delete_ + filter + execute returns raw response", () => {
     const result = (userId: number) =>
       pipe(
-        Postgrest.table<Database>()("users"),
+        Postgrest.from<Database>()("users"),
         Postgrest.delete_(),
         Postgrest.eq("id", userId),
         Postgrest.execute
@@ -529,6 +569,26 @@ describe("delete", () => {
     expectTypeOf<
       Effect.Error<ReturnType<typeof result>>
     >().toEqualTypeOf<never>();
+  });
+
+  it("delete_ + select + executeSingle preserves column inference", () => {
+    const result = (userId: number) =>
+      pipe(
+        Postgrest.from<Database>()("users"),
+        Postgrest.delete_(),
+        Postgrest.eq("id", userId),
+        Postgrest.select("id, name, email"),
+        Postgrest.executeSingle()
+      );
+
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<{
+      id: number;
+      name: string;
+      email: string;
+    }>();
+    expectTypeOf<
+      Effect.Error<ReturnType<typeof result>>
+    >().toEqualTypeOf<PostgrestError>();
   });
 });
 
@@ -545,7 +605,8 @@ describe("filters", () => {
       roles: string[]
     ) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, age, role"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, age, role"),
         Postgrest.gte("age", minAge),
         Postgrest.lte("age", maxAge),
         Postgrest.ilike("name", namePattern),
@@ -572,7 +633,8 @@ describe("filters", () => {
 
   it("gt preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, age"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, age"),
       Postgrest.gt("age", 18),
       Postgrest.executeMultiple()
     );
@@ -584,7 +646,8 @@ describe("filters", () => {
 
   it("lt preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, age"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, age"),
       Postgrest.lt("age", 65),
       Postgrest.executeMultiple()
     );
@@ -596,7 +659,8 @@ describe("filters", () => {
 
   it("like preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name"),
       Postgrest.like("name", "A%"),
       Postgrest.executeMultiple()
     );
@@ -608,7 +672,8 @@ describe("filters", () => {
 
   it("or preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, role"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, role"),
       Postgrest.or("role.eq.admin,role.eq.moderator"),
       Postgrest.executeMultiple()
     );
@@ -620,7 +685,8 @@ describe("filters", () => {
 
   it("not preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name"),
       Postgrest.not("name", "is", null),
       Postgrest.executeMultiple()
     );
@@ -632,7 +698,8 @@ describe("filters", () => {
 
   it("match preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, role"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, role"),
       Postgrest.match({ role: "admin", active: true }),
       Postgrest.executeMultiple()
     );
@@ -644,7 +711,8 @@ describe("filters", () => {
 
   it("filter (raw) preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, age"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, age"),
       Postgrest.filter("age", "gte", 18),
       Postgrest.executeMultiple()
     );
@@ -662,7 +730,8 @@ describe("filters", () => {
 describe("containment filters", () => {
   it("contains preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("roles", "id, name, permissions"),
+      Postgrest.from<Database>()("roles"),
+      Postgrest.select("id, name, permissions"),
       Postgrest.contains("permissions", { read: true }),
       Postgrest.executeMultiple()
     );
@@ -674,7 +743,8 @@ describe("containment filters", () => {
 
   it("containedBy preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("roles", "id, name, permissions"),
+      Postgrest.from<Database>()("roles"),
+      Postgrest.select("id, name, permissions"),
       Postgrest.containedBy("permissions", {
         read: true,
         write: true,
@@ -690,7 +760,8 @@ describe("containment filters", () => {
 
   it("overlaps preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("roles", "id, name"),
+      Postgrest.from<Database>()("roles"),
+      Postgrest.select("id, name"),
       Postgrest.overlaps("name", ["admin", "moderator"]),
       Postgrest.executeMultiple()
     );
@@ -708,7 +779,8 @@ describe("containment filters", () => {
 describe("range filters", () => {
   it("rangeGt preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name"),
       Postgrest.rangeGt("age", "[0,18)"),
       Postgrest.executeMultiple()
     );
@@ -720,7 +792,8 @@ describe("range filters", () => {
 
   it("rangeGte preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name"),
       Postgrest.rangeGte("age", "[0,18]"),
       Postgrest.executeMultiple()
     );
@@ -732,7 +805,8 @@ describe("range filters", () => {
 
   it("rangeLt preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name"),
       Postgrest.rangeLt("age", "[65,100]"),
       Postgrest.executeMultiple()
     );
@@ -744,7 +818,8 @@ describe("range filters", () => {
 
   it("rangeLte preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name"),
       Postgrest.rangeLte("age", "[0,100]"),
       Postgrest.executeMultiple()
     );
@@ -756,7 +831,8 @@ describe("range filters", () => {
 
   it("rangeAdjacent preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name"),
       Postgrest.rangeAdjacent("age", "[18,25)"),
       Postgrest.executeMultiple()
     );
@@ -774,7 +850,8 @@ describe("range filters", () => {
 describe("textSearch", () => {
   it("textSearch preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("posts", "id, title, content"),
+      Postgrest.from<Database>()("posts"),
+      Postgrest.select("id, title, content"),
       Postgrest.textSearch("content", "effect & supabase"),
       Postgrest.executeMultiple()
     );
@@ -786,7 +863,8 @@ describe("textSearch", () => {
 
   it("textSearch with options preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("posts", "id, title"),
+      Postgrest.from<Database>()("posts"),
+      Postgrest.select("id, title"),
       Postgrest.textSearch("content", "effect supabase", {
         type: "websearch",
         config: "english",
@@ -807,7 +885,8 @@ describe("textSearch", () => {
 describe("in_ filter", () => {
   it("in_ with string array preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, role"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, role"),
       Postgrest.in_("role", ["admin", "moderator"]),
       Postgrest.executeMultiple()
     );
@@ -823,7 +902,8 @@ describe("in_ filter", () => {
 
   it("in_ with number array preserves the row type", () => {
     const result = pipe(
-      Postgrest.from<Database>()("users", "id, name, email"),
+      Postgrest.from<Database>()("users"),
+      Postgrest.select("id, name, email"),
       Postgrest.in_("id", [1, 2, 3]),
       Postgrest.executeMultiple()
     );
@@ -834,7 +914,8 @@ describe("in_ filter", () => {
   it("in_ composes with other filters", () => {
     const result = (roles: string[]) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, role"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, role"),
         Postgrest.in_("role", roles),
         Postgrest.eq("active", true),
         Postgrest.order("name"),
@@ -849,7 +930,8 @@ describe("in_ filter", () => {
   it("in_ + executeSingle compiles", () => {
     const result = (userId: number) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, email"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email"),
         Postgrest.in_("id", [userId]),
         Postgrest.executeSingle()
       );
@@ -862,7 +944,8 @@ describe("in_ filter", () => {
   it("in_ + executeMaybeSingle wraps in Option", () => {
     const result = (ids: number[]) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name"),
         Postgrest.in_("id", ids),
         Postgrest.executeMaybeSingle()
       );
@@ -875,7 +958,8 @@ describe("in_ filter", () => {
   it("in_ + schema validation compiles", () => {
     const result = (roles: string[]) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, email"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email"),
         Postgrest.in_("role", roles),
         Postgrest.executeMultipleWithSchema(UserSchema)
       );
@@ -895,7 +979,8 @@ describe("in_ filter", () => {
   it("in_ + filterMapMultipleWithSchema compiles", () => {
     const result = (ids: number[]) =>
       pipe(
-        Postgrest.from<Database>()("users", "id, name, email"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email"),
         Postgrest.in_("id", ids),
         Postgrest.executeFilterMapMultipleWithSchema(UserSchema)
       );
@@ -923,7 +1008,8 @@ describe("pagination", () => {
       const offset = page * pageSize;
       const to = offset + pageSize - 1;
       return pipe(
-        Postgrest.from<Database>()("users", "id, name, email"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email"),
         Postgrest.order("created_at", { ascending: false }),
         Postgrest.range(offset, to),
         Postgrest.executeMultiple()
@@ -940,7 +1026,8 @@ describe("pagination", () => {
       const offset = page * pageSize;
       const to = offset + pageSize - 1;
       return pipe(
-        Postgrest.from<Database>()("users", "id, name, email"),
+        Postgrest.from<Database>()("users"),
+        Postgrest.select("id, name, email"),
         Postgrest.eq("active", true),
         Postgrest.order("created_at", { ascending: false }),
         Postgrest.range(offset, to),
