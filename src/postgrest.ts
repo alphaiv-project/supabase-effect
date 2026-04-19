@@ -153,6 +153,59 @@ export const from =
  */
 export const table = from;
 
+/**
+ * Performs a PostgreSQL function (RPC) call.
+ *
+ * This is the entry point for calling PostgreSQL functions defined in your
+ * database. The function name and arguments are type-checked against your
+ * generated database types.
+ *
+ * The returned builder supports filters and transforms for functions that
+ * return `SETOF` (multiple rows).
+ *
+ * @typeParam DB - The generated Supabase database schema type.
+ * @param fn - The name of the PostgreSQL function to call.
+ * @param args - The arguments to pass to the function. Defaults to `{}`.
+ * @param options - Optional settings.
+ * @param options.head - When `true`, performs a HEAD request (no response body, count only).
+ * @param options.get - When `true`, uses GET instead of POST (for read-only functions).
+ * @param options.count - Count algorithm: `"exact"`, `"planned"`, or `"estimated"`.
+ *
+ * @example
+ * Call a function returning a single value:
+ * ```ts
+ * pipe(
+ *   Postgrest.rpc<Database>()("get_user_stats", { user_id: 123 }),
+ *   Postgrest.executeSingle(),
+ * )
+ * ```
+ *
+ * @example
+ * Call a SETOF function with filters:
+ * ```ts
+ * pipe(
+ *   Postgrest.rpc<Database>()("search_users", { query: "alice" }),
+ *   Postgrest.order("name"),
+ *   Postgrest.limit(10),
+ *   Postgrest.executeMultiple(),
+ * )
+ * ```
+ *
+ * @since 0.3.0
+ */
+export const rpc =
+  <DB>() =>
+  <FnName extends string, Args extends Record<string, unknown> = never>(
+    fn: FnName,
+    args: Args = {} as Args,
+    options: {
+      head?: boolean;
+      get?: boolean;
+      count?: "exact" | "planned" | "estimated";
+    } = {}
+  ) =>
+    Effect.map(getClient<DB>(), (client) => client.rpc(fn, args, options));
+
 // ---------------------------------------------------------------------------
 // Query starters
 // ---------------------------------------------------------------------------

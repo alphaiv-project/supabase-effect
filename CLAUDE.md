@@ -137,10 +137,12 @@ Pure pipe-able utilities for building PostgREST queries, with an explicit effect
 
 **Design**: Build phase is pure functions (no Effect wrapping). Execution is explicit via `execute` or convenience combinators. This preserves Supabase's type-level select query parsing.
 
-**Builder entry point:**
+**Builder entry points:**
 | Function | Description |
 |---|---|
-| `table<D, T>(tableName)` | Pure: `SupabaseClient<D>` → `PostgrestQueryBuilder` |
+| `from<DB>()(tableName)` | Returns `Effect` wrapping `PostgrestQueryBuilder` for table queries |
+| `rpc<DB>()(fn, args?, options?)` | Returns `Effect` wrapping `PostgrestFilterBuilder` for RPC calls |
+| `table<DB>()(tableName)` | Deprecated alias for `from()` |
 
 **Query starters (pure):**
 | Function | Description |
@@ -180,17 +182,28 @@ Pure pipe-able utilities for building PostgREST queries, with an explicit effect
 
 Example usage:
 ```ts
-Client.getClient().pipe(
-  Effect.flatMap(client =>
-    pipe(
-      Postgrest.table("users")(client),
-      Postgrest.select("id, name, email"),
-      Postgrest.eq("active", true),
-      Postgrest.order("name"),
-      Postgrest.limit(10),
-      Postgrest.executeMultiple(),
-    )
-  )
+// Table query
+pipe(
+  Postgrest.from<Database>()("users"),
+  Postgrest.select("id, name, email"),
+  Postgrest.eq("active", true),
+  Postgrest.order("name"),
+  Postgrest.limit(10),
+  Postgrest.executeMultiple(),
+)
+
+// RPC call (SETOF function)
+pipe(
+  Postgrest.rpc<Database>()("search_users", { query: "alice" }),
+  Postgrest.order("relevance", { ascending: false }),
+  Postgrest.limit(10),
+  Postgrest.executeMultiple(),
+)
+
+// RPC call (scalar function)
+pipe(
+  Postgrest.rpc<Database>()("get_user_stats", { user_id: 123 }),
+  Postgrest.execute,
 )
 ```
 
@@ -249,9 +262,10 @@ Internal utilities that fill gaps in the current Effect version:
 - **Storage**: All file/bucket operations wrapped (18 methods)
 - **PostgREST Response Mappers**: 7 response mapping functions
 - **PostgREST Query Builder**: Pure builder functions, 24 filters, transforms, `execute`, and 7 convenience combinators
+- **PostgREST RPC**: `rpc()` function for calling PostgreSQL functions with full type inference
 
 ### Planned (Not Started)
-- **Functions**: Serverless function invocation support
+- **Edge Functions**: Supabase Edge Functions invocation support
 - **Realtime**: Real-time subscription support
 - **Type-safe Error Codes**: For `AuthError` and `PostgrestError`
 

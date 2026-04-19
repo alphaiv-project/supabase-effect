@@ -123,7 +123,44 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      // Function returning a single scalar value
+      get_user_count: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
+      // Function with arguments returning a single object
+      get_user_stats: {
+        Args: { user_id: number };
+        Returns: {
+          total_posts: number;
+          total_likes: number;
+          last_active: string;
+        };
+      };
+      // Function returning SETOF (multiple rows)
+      search_users: {
+        Args: { query: string; limit_count?: number };
+        Returns: {
+          id: number;
+          name: string;
+          email: string;
+          relevance: number;
+        }[];
+      };
+      // Function with no args returning SETOF
+      get_active_users: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          id: number;
+          name: string;
+          email: string;
+        }[];
+      };
+      // Function returning void (side effect only)
+      increment_view_count: {
+        Args: { post_id: number };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

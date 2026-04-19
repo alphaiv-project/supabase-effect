@@ -1047,3 +1047,132 @@ describe("pagination", () => {
     >();
   });
 });
+
+// ---------------------------------------------------------------------------
+// RPC (PostgreSQL function calls)
+// ---------------------------------------------------------------------------
+
+describe("rpc", () => {
+  it("rpc scalar function + execute returns raw response", () => {
+    // Scalar (non-SETOF) functions return PostgrestSingleResponse<T> directly
+    const result = (userId: number) =>
+      pipe(
+        Postgrest.rpc<Database>()("get_user_stats", { user_id: userId }),
+        Postgrest.execute
+      );
+
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
+      PostgrestSingleResponse<{
+        total_posts: number;
+        total_likes: number;
+        last_active: string;
+      }>
+    >();
+    expectTypeOf<
+      Effect.Services<ReturnType<typeof result>>
+    >().toEqualTypeOf<Client.Client>();
+  });
+
+  it("rpc scalar with no args + execute returns raw response", () => {
+    const result = pipe(
+      Postgrest.rpc<Database>()("get_user_count"),
+      Postgrest.execute
+    );
+
+    expectTypeOf<
+      Effect.Success<typeof result>
+    >().toEqualTypeOf<PostgrestSingleResponse<number>>();
+  });
+
+  it("rpc returning SETOF + executeMultiple returns array", () => {
+    const result = (query: string) =>
+      pipe(
+        Postgrest.rpc<Database>()("search_users", { query }),
+        Postgrest.executeMultiple()
+      );
+
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
+      Array<{
+        id: number;
+        name: string;
+        email: string;
+        relevance: number;
+      }>
+    >();
+    expectTypeOf<
+      Effect.Error<ReturnType<typeof result>>
+    >().toEqualTypeOf<PostgrestError>();
+  });
+
+  it("rpc SETOF + filters + transforms", () => {
+    const result = (query: string) =>
+      pipe(
+        Postgrest.rpc<Database>()("search_users", { query }),
+        Postgrest.order("relevance", { ascending: false }),
+        Postgrest.limit(10),
+        Postgrest.executeMultiple()
+      );
+
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
+      Array<{
+        id: number;
+        name: string;
+        email: string;
+        relevance: number;
+      }>
+    >();
+  });
+
+  it("rpc SETOF with get option", () => {
+    const result = pipe(
+      Postgrest.rpc<Database>()(
+        "get_active_users",
+        {},
+        { get: true, count: "exact" }
+      ),
+      Postgrest.executeMultiple()
+    );
+
+    expectTypeOf<Effect.Success<typeof result>>().toEqualTypeOf<
+      Array<{
+        id: number;
+        name: string;
+        email: string;
+      }>
+    >();
+  });
+
+  it("rpc SETOF + executeSingle narrows to single row", () => {
+    // For SETOF functions, executeSingle narrows array to single element
+    const result = (query: string) =>
+      pipe(
+        Postgrest.rpc<Database>()("search_users", { query }),
+        Postgrest.limit(1),
+        Postgrest.executeSingle()
+      );
+
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<{
+      id: number;
+      name: string;
+      email: string;
+      relevance: number;
+    }>();
+  });
+
+  it("rpc SETOF + executeMaybeSingle wraps in Option", () => {
+    const result = (query: string) =>
+      pipe(
+        Postgrest.rpc<Database>()("search_users", { query }),
+        Postgrest.executeMaybeSingle()
+      );
+
+    expectTypeOf<Effect.Success<ReturnType<typeof result>>>().toEqualTypeOf<
+      Option.Option<{
+        id: number;
+        name: string;
+        email: string;
+        relevance: number;
+      }>
+    >();
+  });
+});
