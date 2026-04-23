@@ -32,9 +32,8 @@ export namespace PostgrestError {
    * - **Group 3 — JWT**: `PGRST300` – `PGRST303`
    * - **Group X — Internal**: `PGRSTX00`
    *
-   * A `string` fallback is included via `(string & {})` so that unlisted codes
-   * (e.g. future PostgREST versions or custom codes from PostgreSQL functions)
-   * are still accepted while preserving autocomplete for known codes.
+   * Unknown/custom codes are accepted via the `string & {}` overload of
+   * {@link mapCode} / {@link catchCode}, preserving autocomplete for known codes.
    *
    * @see {@link https://postgrest.org/en/stable/references/errors.html | PostgREST Error Reference}
    * @since 0.2.0
@@ -83,9 +82,20 @@ export namespace PostgrestError {
     | "PGRST302"
     | "PGRST303"
     // Group X — Internal
-    | "PGRSTX00"
-    // Fallback for unlisted / future / custom codes (preserves autocomplete)
-    | (string & {});
+    | "PGRSTX00";
+
+  /**
+   * `PostgrestError` narrowed to a specific inner error code.
+   *
+   * Distributes over unions so `PostgrestErrorWithCode<"a" | "b">` behaves as a
+   * union of tagged variants, letting `Exclude` in {@link catchCode} /
+   * {@link mapCode} remove the handled branch. Empty unions collapse to
+   * `never`.
+   *
+   * @since 0.3.1
+   */
+  export type PostgrestErrorWithCode<EC extends ErrorCode | (string & {})> =
+    EC extends unknown ? PostgrestError & { inner: { code: EC } } : never;
 
   // ---------------------------------------------------------------------------
   // Utilities
@@ -143,13 +153,25 @@ export namespace PostgrestError {
    *
    * @since 0.1.0
    */
-  export function mapCode<E>(
-    code: ErrorCode,
+  export function mapCode<E, EC extends ErrorCode>(
+    code: EC,
+    f: (spe: SupabasePostgrestError & { code: EC }) => E
+  ): <A1, E1, R>(
+    self: Effect.Effect<A1, E1, R>
+  ) => Effect.Effect<A1, E | Exclude<E1, { inner: { code: EC } }>, R>;
+  export function mapCode<E, EC extends string & {}>(
+    code: EC,
     f: (spe: SupabasePostgrestError) => E
-  ) {
-    return <A1, E1, R>(
-      self: Effect.Effect<A1, E1 | PostgrestError, R>
-    ): Effect.Effect<A1, E | E1 | PostgrestError, R> =>
+  ): <A1, E1, R>(
+    self: Effect.Effect<A1, E1 | PostgrestError, R>
+  ) => Effect.Effect<A1, E | E1 | PostgrestError, R>;
+  export function mapCode<E, EC extends ErrorCode | (string & {})>(
+    code: EC,
+    f: (spe: SupabasePostgrestError) => E
+  ): <A1, E1, R>(
+    self: Effect.Effect<A1, E1 | PostgrestError, R>
+  ) => Effect.Effect<A1, E | E1 | PostgrestError, R> {
+    return (self) =>
       Effect.catchIf(
         self,
         (e): e is PostgrestError => is(e) && e.inner.code === code,
@@ -190,13 +212,29 @@ export namespace PostgrestError {
    *
    * @since 0.1.0
    */
-  export function catchCode<A, E, R>(
-    code: ErrorCode,
+  export function catchCode<A, E, R, EC extends ErrorCode>(
+    code: EC,
+    f: (spe: SupabasePostgrestError & { code: EC }) => Effect.Effect<A, E, R>
+  ): <A1, E1, R1>(
+    self: Effect.Effect<A1, E1, R | R1>
+  ) => Effect.Effect<
+    A | A1,
+    E | Exclude<E1, { inner: { code: EC } }>,
+    R | R1
+  >;
+  export function catchCode<A, E, R, EC extends string & {}>(
+    code: EC,
     f: (spe: SupabasePostgrestError) => Effect.Effect<A, E, R>
-  ) {
-    return <A1, E1, R1>(
-      self: Effect.Effect<A1, E1 | PostgrestError, R | R1>
-    ): Effect.Effect<A | A1, E | E1 | PostgrestError, R | R1> =>
+  ): <A1, E1, R1>(
+    self: Effect.Effect<A1, E1 | PostgrestError, R | R1>
+  ) => Effect.Effect<A | A1, E | E1 | PostgrestError, R | R1>;
+  export function catchCode<A, E, R, EC extends ErrorCode | (string & {})>(
+    code: EC,
+    f: (spe: SupabasePostgrestError) => Effect.Effect<A, E, R>
+  ): <A1, E1, R1>(
+    self: Effect.Effect<A1, E1 | PostgrestError, R | R1>
+  ) => Effect.Effect<A | A1, E | E1 | PostgrestError, R | R1> {
+    return (self) =>
       Effect.catchIf(
         self,
         (e): e is PostgrestError => is(e) && e.inner.code === code,
