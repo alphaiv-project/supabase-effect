@@ -2,10 +2,14 @@ import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/ServiceMap";
 import { getClient } from "./client";
 import { StorageError, SupabaseStorageError } from "./storage-error";
-import * as Option from "effect/Option";
 
 /**
  * @internal
+ *
+ * Narrower than the generic `{ data: unknown; error: E }` shape: storage-js
+ * responses always set `data: null` on the error branch, and the narrower
+ * shape lets TypeScript infer `T` precisely from the success branch instead
+ * of broadening it to `T | null`.
  */
 const flatMapStorageResponse = <T>(
   authResponse: Effect.Effect<
@@ -14,7 +18,7 @@ const flatMapStorageResponse = <T>(
         error: null;
       }
     | {
-        data: unknown;
+        data: null;
         error: SupabaseStorageError;
       }
   >
@@ -34,20 +38,19 @@ export class Storage extends ServiceMap.Service<Storage>()(
 
       const createBucket = (...args: Parameters<typeof client.createBucket>) =>
         Effect.promise(() => client.createBucket(...args)).pipe(
-          flatMapStorageResponse,
-          Effect.map(Option.fromNullOr)
+          flatMapStorageResponse
         );
 
       const deleteBucket = (...args: Parameters<typeof client.deleteBucket>) =>
         Effect.promise(() => client.deleteBucket(...args)).pipe(
           flatMapStorageResponse,
-          Effect.map((res) => Option.fromUndefinedOr(res?.message))
+          Effect.map((res) => res.message)
         );
 
       const emptyBucket = (...args: Parameters<typeof client.emptyBucket>) =>
         Effect.promise(() => client.emptyBucket(...args)).pipe(
           flatMapStorageResponse,
-          Effect.map((res) => Option.fromUndefinedOr(res?.message))
+          Effect.map((res) => res.message)
         );
 
       const copy = (
@@ -56,7 +59,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
       ) =>
         Effect.promise(() => client.from(bucket).copy(...args)).pipe(
           flatMapStorageResponse,
-          Effect.map((res) => Option.fromUndefinedOr(res?.path))
+          Effect.map((res) => res.path)
         );
 
       const createSignedUploadUrl = (
@@ -96,7 +99,11 @@ export class Storage extends ServiceMap.Service<Storage>()(
         ...args: Parameters<CertainStorageClient["exists"]>
       ) =>
         Effect.promise(() => client.from(bucket).exists(...args)).pipe(
-          flatMapStorageResponse
+          Effect.flatMap((res) =>
+            res.error
+              ? Effect.fail(new StorageError(res.error))
+              : Effect.succeed(res.data)
+          )
         );
 
       const getPublicUrl = (
@@ -112,8 +119,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         ...args: Parameters<CertainStorageClient["info"]>
       ) =>
         Effect.promise(() => client.from(bucket).info(...args)).pipe(
-          flatMapStorageResponse,
-          Effect.map(Option.fromNullOr)
+          flatMapStorageResponse
         );
 
       const list = (
@@ -121,8 +127,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         ...args: Parameters<CertainStorageClient["list"]>
       ) =>
         Effect.promise(() => client.from(bucket).list(...args)).pipe(
-          flatMapStorageResponse,
-          Effect.map((res) => res ?? [])
+          flatMapStorageResponse
         );
 
       const listV2 = (
@@ -130,8 +135,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         ...args: Parameters<CertainStorageClient["listV2"]>
       ) =>
         Effect.promise(() => client.from(bucket).listV2(...args)).pipe(
-          flatMapStorageResponse,
-          Effect.map(Option.fromNullOr)
+          flatMapStorageResponse
         );
 
       const move = (
@@ -140,7 +144,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
       ) =>
         Effect.promise(() => client.from(bucket).move(...args)).pipe(
           flatMapStorageResponse,
-          Effect.map((res) => Option.fromUndefinedOr(res?.message))
+          Effect.map((res) => res.message)
         );
 
       const remove = (
@@ -148,8 +152,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         ...args: Parameters<CertainStorageClient["remove"]>
       ) =>
         Effect.promise(() => client.from(bucket).remove(...args)).pipe(
-          flatMapStorageResponse,
-          Effect.map((res) => res ?? [])
+          flatMapStorageResponse
         );
 
       const update = (
@@ -157,8 +160,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         ...args: Parameters<CertainStorageClient["update"]>
       ) =>
         Effect.promise(() => client.from(bucket).update(...args)).pipe(
-          flatMapStorageResponse,
-          Effect.map(Option.fromNullOr)
+          flatMapStorageResponse
         );
 
       const upload = (
@@ -166,8 +168,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         ...args: Parameters<CertainStorageClient["upload"]>
       ) =>
         Effect.promise(() => client.from(bucket).upload(...args)).pipe(
-          flatMapStorageResponse,
-          Effect.map(Option.fromNullOr)
+          flatMapStorageResponse
         );
 
       const uploadToSignedUrl = (
@@ -176,24 +177,22 @@ export class Storage extends ServiceMap.Service<Storage>()(
       ) =>
         Effect.promise(() =>
           client.from(bucket).uploadToSignedUrl(...args)
-        ).pipe(flatMapStorageResponse, Effect.map(Option.fromNullOr));
+        ).pipe(flatMapStorageResponse);
 
       const getBucket = (...args: Parameters<typeof client.getBucket>) =>
         Effect.promise(() => client.getBucket(...args)).pipe(
-          flatMapStorageResponse,
-          Effect.map(Option.fromNullOr)
+          flatMapStorageResponse
         );
 
       const listBuckets = (...args: Parameters<typeof client.listBuckets>) =>
         Effect.promise(() => client.listBuckets(...args)).pipe(
-          flatMapStorageResponse,
-          Effect.map((res) => res ?? [])
+          flatMapStorageResponse
         );
 
       const updateBucket = (...args: Parameters<typeof client.updateBucket>) =>
         Effect.promise(() => client.updateBucket(...args)).pipe(
           flatMapStorageResponse,
-          Effect.map((res) => Option.fromUndefinedOr(res?.message))
+          Effect.map((res) => res.message)
         );
 
       return {
