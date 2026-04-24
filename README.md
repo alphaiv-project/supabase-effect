@@ -252,8 +252,8 @@ myQuery.pipe(
 - [x] PostgREST query builder with full type inference
 - [x] PostgREST RPC (PostgreSQL function calls)
 - [x] Schema validation integration
+- [x] Type-safe error codes for Auth and PostgREST
 
 ### Planned
 - [ ] Edge Functions invocation
 - [ ] Realtime subscriptions
-- [ ] Type-safe error codes for Auth and PostgREST
