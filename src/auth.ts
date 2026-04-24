@@ -1,10 +1,36 @@
-import type { AuthError as SupabaseAuthError } from "@supabase/supabase-js";
+import type {
+  AuthChangeEvent,
+  AuthError as SupabaseAuthError,
+  AuthMFAChallengePhoneResponse,
+  AuthMFAChallengeTOTPResponse,
+  AuthMFAChallengeWebauthnResponse,
+  AuthMFAEnrollPhoneResponse,
+  AuthMFAEnrollTOTPResponse,
+  AuthMFAEnrollWebauthnResponse,
+  AuthTokenResponse,
+  MFAChallengePhoneParams,
+  MFAChallengeTOTPParams,
+  MFAChallengeWebauthnParams,
+  MFAEnrollPhoneParams,
+  MFAEnrollTOTPParams,
+  MFAEnrollWebauthnParams,
+  OAuthResponse,
+  Session,
+  SignInWithIdTokenCredentials,
+  SignInWithOAuthCredentials,
+  Subscription,
+} from "@supabase/supabase-js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { AuthError } from "./auth-error";
 import { getClient } from "./client";
+
+/**
+ * @internal
+ */
+type SuccessData<T> = T extends { data: infer D; error: null } ? D : never;
 
 /**
  * @internal
@@ -202,13 +228,41 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
         Effect.map(({ user }) => user)
       );
 
-    const mfaChallenge = (
-      ...args: Parameters<typeof authClient.mfa.challenge>
-    ) =>
-      Effect.promise(() => authClient.mfa.challenge(...args)).pipe(
-        flatMapAuthResponse,
-        Effect.map(Option.fromNullOr)
-      );
+    function mfaChallenge(
+      params: MFAChallengeTOTPParams
+    ): Effect.Effect<
+      Option.Option<SuccessData<AuthMFAChallengeTOTPResponse>>,
+      AuthError
+    >;
+    function mfaChallenge(
+      params: MFAChallengePhoneParams
+    ): Effect.Effect<
+      Option.Option<SuccessData<AuthMFAChallengePhoneResponse>>,
+      AuthError
+    >;
+    function mfaChallenge(
+      params: MFAChallengeWebauthnParams
+    ): Effect.Effect<
+      Option.Option<SuccessData<AuthMFAChallengeWebauthnResponse>>,
+      AuthError
+    >;
+    function mfaChallenge(
+      params:
+        | MFAChallengeTOTPParams
+        | MFAChallengePhoneParams
+        | MFAChallengeWebauthnParams
+    ): Effect.Effect<
+      Option.Option<
+        | SuccessData<AuthMFAChallengeTOTPResponse>
+        | SuccessData<AuthMFAChallengePhoneResponse>
+        | SuccessData<AuthMFAChallengeWebauthnResponse>
+      >,
+      AuthError
+    > {
+      return Effect.promise(() =>
+        authClient.mfa.challenge(params as MFAChallengeTOTPParams)
+      ).pipe(flatMapAuthResponse, Effect.map(Option.fromNullOr));
+    }
 
     const mfaChallengeAndVerify = (
       ...args: Parameters<typeof authClient.mfa.challengeAndVerify>
@@ -218,12 +272,35 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
         Effect.map(Option.fromNullOr)
       );
 
-    const mfaEnroll = (...args: Parameters<typeof authClient.mfa.enroll>) =>
-      Effect.promise(() => authClient.mfa.enroll(...args)).pipe(
-        Effect.flatMap((res) =>
-          res.error ? Effect.fail(res.error) : Effect.succeed(res.data)
-        )
-      );
+    function mfaEnroll(
+      params: MFAEnrollTOTPParams
+    ): Effect.Effect<SuccessData<AuthMFAEnrollTOTPResponse>, AuthError>;
+    function mfaEnroll(
+      params: MFAEnrollPhoneParams
+    ): Effect.Effect<SuccessData<AuthMFAEnrollPhoneResponse>, AuthError>;
+    function mfaEnroll(
+      params: MFAEnrollWebauthnParams
+    ): Effect.Effect<SuccessData<AuthMFAEnrollWebauthnResponse>, AuthError>;
+    function mfaEnroll(
+      params:
+        | MFAEnrollTOTPParams
+        | MFAEnrollPhoneParams
+        | MFAEnrollWebauthnParams
+    ): Effect.Effect<
+      | SuccessData<AuthMFAEnrollTOTPResponse>
+      | SuccessData<AuthMFAEnrollPhoneResponse>
+      | SuccessData<AuthMFAEnrollWebauthnResponse>,
+      AuthError
+    > {
+      return Effect.promise(() =>
+        authClient.mfa.enroll(params as MFAEnrollTOTPParams)
+      ).pipe(flatMapAuthResponse) as Effect.Effect<
+        | SuccessData<AuthMFAEnrollTOTPResponse>
+        | SuccessData<AuthMFAEnrollPhoneResponse>
+        | SuccessData<AuthMFAEnrollWebauthnResponse>,
+        AuthError
+      >;
+    }
 
     const mfaGetAuthenticatorAssuranceLevel = (
       ...args: Parameters<typeof authClient.mfa.getAuthenticatorAssuranceLevel>
@@ -306,19 +383,47 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
       ...args: Parameters<typeof authClient.isThrowOnErrorEnabled>
     ) => Effect.sync(() => authClient.isThrowOnErrorEnabled(...args));
 
-    const linkIdentity = (
-      ...args: Parameters<typeof authClient.linkIdentity>
-    ) =>
-      Effect.promise(() => authClient.linkIdentity(...args)).pipe(
-        flatMapAuthResponse
-      );
+    function linkIdentity(
+      credentials: SignInWithOAuthCredentials
+    ): Effect.Effect<SuccessData<OAuthResponse>, AuthError>;
+    function linkIdentity(
+      credentials: SignInWithIdTokenCredentials
+    ): Effect.Effect<SuccessData<AuthTokenResponse>, AuthError>;
+    function linkIdentity(
+      credentials: SignInWithOAuthCredentials | SignInWithIdTokenCredentials
+    ): Effect.Effect<
+      SuccessData<OAuthResponse> | SuccessData<AuthTokenResponse>,
+      AuthError
+    > {
+      return Effect.promise(() =>
+        authClient.linkIdentity(credentials as SignInWithOAuthCredentials)
+      ).pipe(flatMapAuthResponse);
+    }
 
-    const onAuthStateChange = (
-      ...args: Parameters<typeof authClient.onAuthStateChange>
-    ) =>
-      Effect.sync(() => authClient.onAuthStateChange(...args)).pipe(
-        Effect.map((res) => res.data.subscription)
-      );
+    function onAuthStateChange(
+      callback: (event: AuthChangeEvent, session: Session | null) => void
+    ): Effect.Effect<Subscription>;
+    function onAuthStateChange(
+      callback: (
+        event: AuthChangeEvent,
+        session: Session | null
+      ) => Promise<void>
+    ): Effect.Effect<Subscription>;
+    function onAuthStateChange(
+      callback: (
+        event: AuthChangeEvent,
+        session: Session | null
+      ) => void | Promise<void>
+    ) {
+      return Effect.sync(() =>
+        authClient.onAuthStateChange(
+          callback as (
+            event: AuthChangeEvent,
+            session: Session | null
+          ) => void
+        )
+      ).pipe(Effect.map((res) => res.data.subscription));
+    }
 
     const reauthenticate = (
       ...args: Parameters<typeof authClient.reauthenticate>
@@ -427,7 +532,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const signOut = (...args: Parameters<typeof authClient.signOut>) =>
       Effect.promise(() => authClient.signOut(...args)).pipe(
         Effect.flatMap((res) =>
-          res.error ? Effect.fail(res.error) : Effect.void
+          res.error ? Effect.fail(new AuthError(res.error)) : Effect.void
         )
       );
 
