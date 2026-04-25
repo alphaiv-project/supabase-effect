@@ -115,6 +115,93 @@ export function filterMapMultipleWithSchema<A, I>(
 }
 
 /**
+ * Map supabase's response to Effect of `{ data, count }`, preserving the
+ * `count` field returned by Supabase when a `count` option is set on the query.
+ *
+ * `count` is `null` unless the underlying query was issued with a count option
+ * (e.g. `.select("*", { count: "exact" })`).
+ *
+ * @example
+ * ```ts
+ * const res = Effect.promise(() =>
+ *   client.from("some_table").select("*", { count: "exact" })
+ * ).pipe(PgResponse.flatMapMultipleWithCount())
+ * ```
+ *
+ * @typeParam T - The type of the response data.
+ *
+ * @since 0.4.0
+ */
+export function flatMapMultipleWithCount(): <T>(
+  res: PostgrestResponse<T>
+) => Effect.Effect<{ data: Array<T>; count: number | null }, PostgrestError> {
+  return <T>(res: PostgrestResponse<T>) =>
+    res.error
+      ? Effect.fail(new PostgrestError(res.error))
+      : Effect.succeed({ data: res.data, count: res.count });
+}
+
+/**
+ * Map supabase's response to Effect of `{ data, count }` with schema decoding.
+ * Fails the `Effect` if any item fails to decode.
+ *
+ * @typeParam A - The type of decoded response data.
+ * @typeParam I - The type of raw(undecoded) response data.
+ *
+ * @see {@link filterMapMultipleWithCountAndSchema} - Filters out items that fail to decode instead of failing.
+ *
+ * @since 0.4.0
+ */
+export function flatMapMultipleWithCountAndSchema<A, I>(
+  s: PureSchemaWithEncodedType<A, I>,
+  concurrency?: Types.Concurrency
+): (
+  res: PostgrestResponse<I>
+) => Effect.Effect<
+  { data: Array<A>; count: number | null },
+  PostgrestError | Schema.SchemaError
+> {
+  return (res: PostgrestResponse<I>) =>
+    res.error
+      ? Effect.fail(new PostgrestError(res.error))
+      : pipe(
+          Effect.forEach(res.data, decodePure(s), { concurrency }),
+          Effect.map((data) => ({ data, count: res.count }))
+        );
+}
+
+/**
+ * Map supabase's response to Effect of `{ data, count }` with schema decoding,
+ * silently filtering out items that fail to decode.
+ *
+ * @typeParam A - The type of decoded response data.
+ * @typeParam I - The type of raw(undecoded) response data.
+ *
+ * @see {@link flatMapMultipleWithCountAndSchema} - Fails the `Effect` when any item fails to decode.
+ *
+ * @since 0.4.0
+ */
+export function filterMapMultipleWithCountAndSchema<A, I>(
+  s: PureSchemaWithEncodedType<A, I>,
+  concurrency?: Types.Concurrency
+): (
+  res: PostgrestResponse<I>
+) => Effect.Effect<{ data: Array<A>; count: number | null }, PostgrestError> {
+  return (res: PostgrestResponse<I>) => {
+    if (res.error) {
+      return Effect.fail(new PostgrestError(res.error));
+    }
+
+    return pipe(
+      res.data,
+      Effect.forEach((item) => decodePureResult(s)(item), { concurrency }),
+      Effect.map(Array.filterMap(Function.identity)),
+      Effect.map((data) => ({ data, count: res.count }))
+    );
+  };
+}
+
+/**
  * Map supabase's single response to effect.
  *
  * @example

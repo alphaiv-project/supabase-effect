@@ -175,10 +175,15 @@ Pure pipe-able utilities for building PostgREST queries, with an explicit effect
 | `executeMultiple()` | → `Effect<T[], PostgrestError>` |
 | `executeMultipleWithSchema(s)` | → `Effect<A[], PostgrestError \| SchemaError>` |
 | `executeFilterMapMultipleWithSchema(s)` | → `Effect<A[], PostgrestError>` (filters failures) |
+| `executeMultipleWithCount()` | → `Effect<{ data: T[]; count: number \| null }, PostgrestError>` |
+| `executeMultipleWithCountAndSchema(s)` | → `Effect<{ data: A[]; count: number \| null }, PostgrestError \| SchemaError>` |
+| `executeFilterMapMultipleWithCountAndSchema(s)` | → `Effect<{ data: A[]; count: number \| null }, PostgrestError>` (filters failures) |
 | `executeSingle()` | → `Effect<T, PostgrestError>` (auto-applies `.single()`) |
 | `executeSingleWithSchema(s)` | → `Effect<A, PostgrestError \| SchemaError>` (auto-applies `.single()`) |
 | `executeMaybeSingle()` | → `Effect<Option<T>, PostgrestError>` (auto-applies `.maybeSingle()`) |
 | `executeMaybeSingleWithSchema(s)` | → `Effect<Option<A>, PostgrestError \| SchemaError>` (auto-applies `.maybeSingle()`) |
+
+The `*WithCount` variants preserve Supabase's `count` field. `count` is `null` unless the query was issued with a count option (e.g. `select("*", { count: "exact" })`).
 
 Example usage:
 ```ts
@@ -207,7 +212,13 @@ pipe(
 )
 ```
 
-**Type strategy**: Uses structural typing (`{ method: (...args: any[]) => any }`) instead of importing `PostgrestFilterBuilder<any,...>` directly, because importing the builder classes with `any` generics causes TypeScript OOM due to type explosion in Supabase's recursive type parser.
+**Type strategy**: Filter and transform constraints use a structural alias `BuilderWith<K extends string> = { [P in K]: (...args: any[]) => any }` rather than importing `PostgrestFilterBuilder` / `PostgrestQueryBuilder` directly. Three reasons:
+
+1. Filters (`eq`, `order`, `single`, etc.) live on `PostgrestFilterBuilder` (and `PostgrestTransformBuilder`), not on `PostgrestQueryBuilder` — so the latter can't be the constraint.
+2. `PostgrestFilterBuilder<any × 7>` triggers TypeScript OOM via `GetResult`, the recursive select-string parser baked into the `Result` generic. The constraint-check phase walks that parser at every call site.
+3. `select` legitimately accepts both `PostgrestQueryBuilder` (initial) and `PostgrestFilterBuilder` (after a mutation chain like `update().select()`) — `ComputeSelectResult` has two `extends` branches for this reason. A nominal union would pay the OOM tax twice; the structural alias covers both for free.
+
+Type precision is preserved via `as B` at each call site (carries the user's specific builder type) and via `ComputeSelectResult` for `select`. The structural constraint only governs *acceptance*, not the *output* type.
 
 ### PostgREST response mappers (`src/pg-response.ts`)
 
@@ -218,6 +229,9 @@ Pipe-able functions that convert Supabase's `PostgrestResponse` types into `Effe
 | `flatMapMultiple()` | `PostgrestResponse<T>` | `Effect<T[], PostgrestError>` |
 | `flatMapMultipleWithSchema(s)` | `PostgrestResponse<I>` | `Effect<A[], PostgrestError \| SchemaError>` |
 | `filterMapMultipleWithSchema(s)` | `PostgrestResponse<I>` | `Effect<A[], PostgrestError>` (filters decode failures) |
+| `flatMapMultipleWithCount()` | `PostgrestResponse<T>` | `Effect<{ data: T[]; count: number \| null }, PostgrestError>` |
+| `flatMapMultipleWithCountAndSchema(s)` | `PostgrestResponse<I>` | `Effect<{ data: A[]; count: number \| null }, PostgrestError \| SchemaError>` |
+| `filterMapMultipleWithCountAndSchema(s)` | `PostgrestResponse<I>` | `Effect<{ data: A[]; count: number \| null }, PostgrestError>` (filters decode failures) |
 | `flatMapSingle()` | `PostgrestSingleResponse<T>` | `Effect<T, PostgrestError>` |
 | `flatMapSingleWithSchema(s)` | `PostgrestSingleResponse<I>` | `Effect<A, PostgrestError \| SchemaError>` |
 | `flatMapNullable()` | `PostgrestMaybeSingleResponse<T>` | `Effect<Option<T>, PostgrestError>` |
@@ -260,8 +274,8 @@ Internal utilities that fill gaps in the current Effect version:
 - **Client**: Browser and SSR contexts fully supported
 - **Auth**: 55+ methods wrapped with full coverage
 - **Storage**: All file/bucket operations wrapped (18 methods)
-- **PostgREST Response Mappers**: 7 response mapping functions
-- **PostgREST Query Builder**: Pure builder functions, 24 filters, transforms, `execute`, and 7 convenience combinators
+- **PostgREST Response Mappers**: 10 response mapping functions
+- **PostgREST Query Builder**: Pure builder functions, 24 filters, transforms, `execute`, and 10 convenience combinators
 - **PostgREST RPC**: `rpc()` function for calling PostgreSQL functions with full type inference
 
 ### Planned (Not Started)

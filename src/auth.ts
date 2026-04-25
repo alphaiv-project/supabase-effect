@@ -417,10 +417,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     ) {
       return Effect.sync(() =>
         authClient.onAuthStateChange(
-          callback as (
-            event: AuthChangeEvent,
-            session: Session | null
-          ) => void
+          callback as (event: AuthChangeEvent, session: Session | null) => void
         )
       ).pipe(Effect.map((res) => res.data.subscription));
     }

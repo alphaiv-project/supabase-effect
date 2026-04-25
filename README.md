@@ -219,6 +219,12 @@ myQuery.pipe(Effect.provide(browserLayer));
 | `executeMultipleWithSchema(s)` | `Effect<A[], PostgrestError \| SchemaError>` |
 | `executeSingleWithSchema(s)` | `Effect<A, PostgrestError \| SchemaError>` |
 | `executeMaybeSingleWithSchema(s)` | `Effect<Option<A>, PostgrestError \| SchemaError>` |
+| `executeFilterMapMultipleWithSchema(s)` | `Effect<A[], PostgrestError>` (filters decode failures) |
+| `executeMultipleWithCount()` | `Effect<{ data: T[]; count: number \| null }, PostgrestError>` |
+| `executeMultipleWithCountAndSchema(s)` | `Effect<{ data: A[]; count: number \| null }, PostgrestError \| SchemaError>` |
+| `executeFilterMapMultipleWithCountAndSchema(s)` | `Effect<{ data: A[]; count: number \| null }, PostgrestError>` |
+
+The `*WithCount` variants preserve Supabase's `count` field. `count` is `null` unless the query was issued with a count option (e.g. `select("*", { count: "exact" })`).
 
 ### Error Handling
 

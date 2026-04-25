@@ -16,7 +16,7 @@ export class AuthError extends Data.TaggedError("supabase-effect/AuthError")<{
  *
  * @link https://supabase.com/docs/guides/auth/debugging/error-codes
  *
- * @since 0.3.1
+ * @since 0.4.0
  */
 export type ErrorCode =
   | "unexpected_failure"
@@ -111,7 +111,7 @@ export type ErrorCode =
  * of tagged variants, letting `Exclude` in {@link catchCode} / {@link mapCode}
  * remove the handled branch. Empty unions collapse to `never`.
  *
- * @since 0.3.1
+ * @since 0.4.0
  */
 export type AuthErrorWithCode<EC extends ErrorCode | (string & {})> =
   EC extends unknown ? AuthError & { inner: { code: EC } } : never;

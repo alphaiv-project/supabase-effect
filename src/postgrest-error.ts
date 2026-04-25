@@ -92,7 +92,7 @@ export namespace PostgrestError {
    * {@link mapCode} remove the handled branch. Empty unions collapse to
    * `never`.
    *
-   * @since 0.3.1
+   * @since 0.4.0
    */
   export type PostgrestErrorWithCode<EC extends ErrorCode | (string & {})> =
     EC extends unknown ? PostgrestError & { inner: { code: EC } } : never;
@@ -217,11 +217,7 @@ export namespace PostgrestError {
     f: (spe: SupabasePostgrestError & { code: EC }) => Effect.Effect<A, E, R>
   ): <A1, E1, R1>(
     self: Effect.Effect<A1, E1, R | R1>
-  ) => Effect.Effect<
-    A | A1,
-    E | Exclude<E1, { inner: { code: EC } }>,
-    R | R1
-  >;
+  ) => Effect.Effect<A | A1, E | Exclude<E1, { inner: { code: EC } }>, R | R1>;
   export function catchCode<A, E, R, EC extends string & {}>(
     code: EC,
     f: (spe: SupabasePostgrestError) => Effect.Effect<A, E, R>

@@ -29,6 +29,18 @@ export type { PostgrestQueryBuilder } from "@supabase/postgrest-js";
 // ---------------------------------------------------------------------------
 
 /**
+ * Structural constraint used by filters and transforms to require a method
+ * named `K` without importing the Supabase builder type directly. Importing
+ * `PostgrestFilterBuilder<any, ...>` causes TypeScript OOM via the recursive
+ * select-string parser, so this loose shape is deliberate. Argument and
+ * return types are intentionally `any` — the strong typing comes from the
+ * outer signatures and the `as B` cast at each call site.
+ */
+type BuilderWith<K extends string> = {
+  [P in K]: (...args: any[]) => any;
+};
+
+/**
  * Extract the row type `T` from a builder whose `PromiseLike` resolves to
  * `PostgrestResponse<T>` (i.e. `PostgrestSingleResponse<T[]>`).
  *
@@ -240,7 +252,7 @@ export const select =
     columns?: Q,
     options?: { head?: boolean; count?: "exact" | "planned" | "estimated" }
   ) =>
-  <QB extends { select: (...args: any[]) => any }, E, R>(
+  <QB extends BuilderWith<"select">, E, R>(
     effect: Effect.Effect<QB, E, R>
   ): Effect.Effect<ComputeSelectResult<QB, Q>, E, R> =>
     Effect.map(
@@ -401,9 +413,7 @@ export const upsert =
  */
 export const delete_ =
   (options?: { count?: "exact" | "planned" | "estimated" }) =>
-  <QB extends { delete: (...args: any[]) => any }, E, R>(
-    effect: Effect.Effect<QB, E, R>
-  ) =>
+  <QB extends BuilderWith<"delete">, E, R>(effect: Effect.Effect<QB, E, R>) =>
     Effect.map(effect, (qb) => qb.delete(options) as ReturnType<QB["delete"]>);
 
 // ---------------------------------------------------------------------------
@@ -420,7 +430,7 @@ export const delete_ =
  */
 export const eq =
   <CN extends string>(column: CN, value: unknown) =>
-  <B extends { eq: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"eq">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.eq(column, value) as B);
@@ -435,7 +445,7 @@ export const eq =
  */
 export const neq =
   <CN extends string>(column: CN, value: unknown) =>
-  <B extends { neq: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"neq">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.neq(column, value) as B);
@@ -450,7 +460,7 @@ export const neq =
  */
 export const gt =
   <CN extends string>(column: CN, value: unknown) =>
-  <B extends { gt: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"gt">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.gt(column, value) as B);
@@ -465,7 +475,7 @@ export const gt =
  */
 export const gte =
   <CN extends string>(column: CN, value: unknown) =>
-  <B extends { gte: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"gte">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.gte(column, value) as B);
@@ -480,7 +490,7 @@ export const gte =
  */
 export const lt =
   <CN extends string>(column: CN, value: unknown) =>
-  <B extends { lt: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"lt">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.lt(column, value) as B);
@@ -495,7 +505,7 @@ export const lt =
  */
 export const lte =
   <CN extends string>(column: CN, value: unknown) =>
-  <B extends { lte: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"lte">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.lte(column, value) as B);
@@ -510,7 +520,7 @@ export const lte =
  */
 export const like =
   <CN extends string>(column: CN, pattern: string) =>
-  <B extends { like: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"like">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.like(column, pattern) as B);
@@ -525,7 +535,7 @@ export const like =
  */
 export const ilike =
   <CN extends string>(column: CN, pattern: string) =>
-  <B extends { ilike: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"ilike">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.ilike(column, pattern) as B);
@@ -541,7 +551,7 @@ export const ilike =
  */
 export const is =
   <CN extends string>(column: CN, value: boolean | null) =>
-  <B extends { is: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"is">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.is(column, value) as B);
@@ -558,7 +568,7 @@ export const is =
  */
 export const in_ =
   <CN extends string>(column: CN, values: unknown[]) =>
-  <B extends { in: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"in">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.in(column, values) as B);
@@ -573,7 +583,7 @@ export const in_ =
  */
 export const contains =
   <CN extends string>(column: CN, value: unknown) =>
-  <B extends { contains: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"contains">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.contains(column, value) as B);
@@ -589,7 +599,7 @@ export const contains =
  */
 export const containedBy =
   <CN extends string>(column: CN, value: unknown) =>
-  <B extends { containedBy: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"containedBy">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.containedBy(column, value) as B);
@@ -604,7 +614,7 @@ export const containedBy =
  */
 export const overlaps =
   <CN extends string>(column: CN, value: unknown) =>
-  <B extends { overlaps: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"overlaps">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.overlaps(column, value) as B);
@@ -619,7 +629,7 @@ export const overlaps =
  */
 export const rangeGt =
   <CN extends string>(column: CN, range: string) =>
-  <B extends { rangeGt: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"rangeGt">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.rangeGt(column, range) as B);
@@ -634,7 +644,7 @@ export const rangeGt =
  */
 export const rangeGte =
   <CN extends string>(column: CN, range: string) =>
-  <B extends { rangeGte: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"rangeGte">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.rangeGte(column, range) as B);
@@ -649,7 +659,7 @@ export const rangeGte =
  */
 export const rangeLt =
   <CN extends string>(column: CN, range: string) =>
-  <B extends { rangeLt: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"rangeLt">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.rangeLt(column, range) as B);
@@ -664,7 +674,7 @@ export const rangeLt =
  */
 export const rangeLte =
   <CN extends string>(column: CN, range: string) =>
-  <B extends { rangeLte: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"rangeLte">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.rangeLte(column, range) as B);
@@ -679,7 +689,7 @@ export const rangeLte =
  */
 export const rangeAdjacent =
   <CN extends string>(column: CN, range: string) =>
-  <B extends { rangeAdjacent: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"rangeAdjacent">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.rangeAdjacent(column, range) as B);
@@ -701,7 +711,7 @@ export const textSearch =
     query: string,
     options?: { config?: string; type?: "plain" | "phrase" | "websearch" }
   ) =>
-  <B extends { textSearch: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"textSearch">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(
@@ -719,7 +729,7 @@ export const textSearch =
  */
 export const match =
   (query: Record<string, unknown>) =>
-  <B extends { match: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"match">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.match(query) as B);
@@ -735,7 +745,7 @@ export const match =
  */
 export const not =
   <CN extends string>(column: CN, operator: string, value: unknown) =>
-  <B extends { not: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"not">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.not(column, operator, value) as B);
@@ -751,7 +761,7 @@ export const not =
  */
 export const or =
   (filters: string, options?: { referencedTable?: string }) =>
-  <B extends { or: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"or">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.or(filters, options) as B);
@@ -769,7 +779,7 @@ export const or =
  */
 export const filter =
   <CN extends string>(column: CN, operator: string, value: unknown) =>
-  <B extends { filter: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"filter">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(
@@ -801,7 +811,7 @@ export const order =
       referencedTable?: string;
     }
   ) =>
-  <B extends { order: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"order">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.order(column, options) as B);
@@ -817,7 +827,7 @@ export const order =
  */
 export const limit =
   (count: number, options?: { referencedTable?: string }) =>
-  <B extends { limit: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"limit">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.limit(count, options) as B);
@@ -834,7 +844,7 @@ export const limit =
  */
 export const range =
   (from: number, to: number, options?: { referencedTable?: string }) =>
-  <B extends { range: (...args: any[]) => any }, E, R>(
+  <B extends BuilderWith<"range">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<B, E, R> =>
     Effect.map(effect, (builder) => builder.range(from, to, options) as B);
@@ -850,13 +860,7 @@ export const range =
  */
 export const asSingle =
   () =>
-  <
-    B extends PromiseLike<PostgrestResponse<any>> & {
-      single: (...args: any[]) => any;
-    },
-    E,
-    R,
-  >(
+  <B extends PromiseLike<PostgrestResponse<any>> & BuilderWith<"single">, E, R>(
     effect: Effect.Effect<B, E, R>
   ) =>
     Effect.map(
@@ -877,9 +881,7 @@ export const asSingle =
 export const asMaybeSingle =
   () =>
   <
-    B extends PromiseLike<PostgrestResponse<any>> & {
-      maybeSingle: (...args: any[]) => any;
-    },
+    B extends PromiseLike<PostgrestResponse<any>> & BuilderWith<"maybeSingle">,
     E,
     R,
   >(
@@ -900,9 +902,7 @@ export const asMaybeSingle =
  */
 export const asCsv =
   () =>
-  <B extends { csv: (...args: any[]) => any }, E, R>(
-    effect: Effect.Effect<B, E, R>
-  ) =>
+  <B extends BuilderWith<"csv">, E, R>(effect: Effect.Effect<B, E, R>) =>
     Effect.map(effect, (builder) => builder.csv() as ReturnType<B["csv"]>);
 
 // ---------------------------------------------------------------------------
@@ -1039,6 +1039,104 @@ export const executeFilterMapMultipleWithSchema =
     );
 
 /**
+ * Executes a PostgREST query and returns `{ data, count }`, preserving the
+ * `count` field from the response.
+ *
+ * `count` is `null` unless a count option was passed (e.g. `select("*", { count: "exact" })`).
+ *
+ * @example
+ * ```ts
+ * pipe(
+ *   Postgrest.from<Database>()("users"),
+ *   Postgrest.select("id, name", { count: "exact" }),
+ *   Postgrest.eq("active", true),
+ *   Postgrest.range(0, 49),
+ *   Postgrest.executeMultipleWithCount(),
+ * )
+ * ```
+ *
+ * @since 0.4.0
+ */
+export const executeMultipleWithCount =
+  () =>
+  <T, E, R>(
+    effect: Effect.Effect<PromiseLike<PostgrestResponse<T>>, E, R>
+  ): Effect.Effect<
+    { data: T[]; count: number | null },
+    E | PostgrestError,
+    R
+  > =>
+    pipe(
+      effect,
+      Effect.flatMap((builder) => Effect.promise(() => builder.then((r) => r))),
+      Effect.flatMap((response) =>
+        PgResponse.flatMapMultipleWithCount()(response as PostgrestResponse<T>)
+      )
+    );
+
+/**
+ * Executes a PostgREST query and returns `{ data, count }`, decoding each row
+ * with an Effect Schema. Fails the `Effect` if any row fails to decode.
+ *
+ * @param schema - A pure `Schema` to decode each row.
+ * @param concurrency - Optional concurrency setting for parallel decoding.
+ *
+ * @see {@link executeFilterMapMultipleWithCountAndSchema} to silently filter out rows that fail to decode.
+ *
+ * @since 0.4.0
+ */
+export const executeMultipleWithCountAndSchema =
+  <A, I = A>(
+    schema: PureSchemaWithEncodedType<A, I>,
+    concurrency?: Types.Concurrency
+  ) =>
+  <E, R>(
+    effect: Effect.Effect<PromiseLike<PostgrestResponse<any>>, E, R>
+  ): Effect.Effect<
+    { data: A[]; count: number | null },
+    E | PostgrestError | Schema.SchemaError,
+    R
+  > =>
+    pipe(
+      effect,
+      Effect.flatMap((builder) => Effect.promise(() => builder.then((r) => r))),
+      Effect.flatMap(
+        PgResponse.flatMapMultipleWithCountAndSchema(schema, concurrency)
+      )
+    );
+
+/**
+ * Executes a PostgREST query and returns `{ data, count }`, decoding each row
+ * with an Effect Schema and silently filtering out rows that fail to decode.
+ *
+ * @param schema - A pure `Schema` to decode each row.
+ * @param concurrency - Optional concurrency setting for parallel decoding.
+ *
+ * @see {@link executeMultipleWithCountAndSchema} to fail the `Effect` when any row fails to decode.
+ *
+ * @since 0.4.0
+ */
+export const executeFilterMapMultipleWithCountAndSchema =
+  <A, I = A>(
+    schema: PureSchemaWithEncodedType<A, I>,
+    concurrency?: Types.Concurrency
+  ) =>
+  <E, R>(
+    effect: Effect.Effect<PromiseLike<PostgrestResponse<any>>, E, R>
+  ): Effect.Effect<
+    { data: A[]; count: number | null },
+    E | PostgrestError,
+    R
+  > =>
+    pipe(
+      effect,
+      Effect.flatMap((builder) => Effect.promise(() => builder.then((r) => r))),
+      Effect.flatMap(
+        PgResponse.filterMapMultipleWithCountAndSchema(schema, concurrency)
+      )
+    );
+
+/**
  * Executes a PostgREST query and returns a single row.
  *
  * Automatically applies `.single()` to the builder, so there's no need
@@ -1061,13 +1159,7 @@ export const executeFilterMapMultipleWithSchema =
  */
 export const executeSingle =
   () =>
-  <
-    B extends PromiseLike<PostgrestResponse<any>> & {
-      single: (...args: any[]) => any;
-    },
-    E,
-    R,
-  >(
+  <B extends PromiseLike<PostgrestResponse<any>> & BuilderWith<"single">, E, R>(
     effect: Effect.Effect<B, E, R>
   ): Effect.Effect<InferRow<B>, E | PostgrestError, R> =>
     pipe(
@@ -1096,9 +1188,7 @@ export const executeSingleWithSchema =
   <A, I = A>(schema: PureSchemaWithEncodedType<A, I>) =>
   <E, R>(
     effect: Effect.Effect<
-      PromiseLike<PostgrestResponse<any>> & {
-        single: (...args: any[]) => any;
-      },
+      PromiseLike<PostgrestResponse<any>> & BuilderWith<"single">,
       E,
       R
     >
@@ -1138,9 +1228,7 @@ export const executeSingleWithSchema =
 export const executeMaybeSingle =
   () =>
   <
-    B extends PromiseLike<PostgrestResponse<any>> & {
-      maybeSingle: (...args: any[]) => any;
-    },
+    B extends PromiseLike<PostgrestResponse<any>> & BuilderWith<"maybeSingle">,
     E,
     R,
   >(
@@ -1175,9 +1263,7 @@ export const executeMaybeSingleWithSchema =
   <A, I = A>(schema: PureSchemaWithEncodedType<A, I>) =>
   <E, R>(
     effect: Effect.Effect<
-      PromiseLike<PostgrestResponse<any>> & {
-        maybeSingle: (...args: any[]) => any;
-      },
+      PromiseLike<PostgrestResponse<any>> & BuilderWith<"maybeSingle">,
       E,
       R
     >
