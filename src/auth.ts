@@ -24,8 +24,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import { AuthError } from "./auth-error";
-import { getClient } from "./client";
+import { AuthError } from "./auth-error.js";
+import { getClient } from "./client.js";
 
 /**
  * @internal

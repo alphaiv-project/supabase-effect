@@ -60,7 +60,14 @@ export namespace Client {
     }
   ) =>
     Layer.succeed(Client, {
-      _get: <D>() => Effect.succeed(createServerClient<D>(url, key, options)),
+      _get: <D>() =>
+        Effect.succeed(
+          createServerClient<D>(
+            url,
+            key,
+            options
+          ) as unknown as SupabaseClient<D>
+        ),
     });
 
   /**

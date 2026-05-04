@@ -15,7 +15,7 @@
     "skipLibCheck": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "moduleResolution": "Bundler",
+    "moduleResolution": "NodeNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": [],
     "isolatedModules": true,
@@ -34,7 +34,7 @@
     "noUncheckedIndexedAccess": false,
     "strictNullChecks": true,
     "target": "ES2022",
-    "module": "ESNext",
+    "module": "NodeNext",
     "incremental": true,
     "removeComments": false,
     "plugins": [

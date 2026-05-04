@@ -4,19 +4,19 @@ import type {
   PostgrestSingleResponse,
 } from "@supabase/supabase-js";
 import * as Effect from "effect/Effect";
-import { PostgrestError } from "./postgrest-error";
+import { PostgrestError } from "./postgrest-error.js";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
   decodePure,
   decodePureResult,
   PureSchemaWithEncodedType,
-} from "./schema";
+} from "./schema.js";
 import { pipe } from "effect";
 import * as Array from "effect/Array";
 import * as Types from "effect/Types";
 import * as Function from "effect/Function";
-import { transpose } from "./effect-util";
+import { transpose } from "./effect-util.js";
 
 /**
  * Map supabase's response to Effect<Array, PostgrestError>.

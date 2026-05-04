@@ -10,7 +10,7 @@
 import { describe, it, expectTypeOf } from "vitest";
 import { pipe } from "effect";
 import * as Effect from "effect/Effect";
-import { PostgrestError } from "../../src/postgrest-error";
+import { PostgrestError } from "../../src/postgrest-error.js";
 
 const srcMulti = Effect.never as unknown as Effect.Effect<
   number,

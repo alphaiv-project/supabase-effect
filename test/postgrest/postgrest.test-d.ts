@@ -13,10 +13,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { PostgrestSingleResponse } from "@supabase/supabase-js";
-import type { Database, Json } from "../test-database.types";
-import * as Client from "../../src/client";
-import * as Postgrest from "../../src/postgrest";
-import type { PostgrestError } from "../../src/postgrest-error";
+import type { Database, Json } from "../test-database.types.js";
+import * as Client from "../../src/client.js";
+import * as Postgrest from "../../src/postgrest.js";
+import type { PostgrestError } from "../../src/postgrest-error.js";
 
 // ---------------------------------------------------------------------------
 // Shared schemas & types

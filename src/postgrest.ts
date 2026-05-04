@@ -15,10 +15,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Types from "effect/Types";
 import { pipe } from "effect";
-import { getClient } from "./client";
-import { PostgrestError } from "./postgrest-error";
-import * as PgResponse from "./pg-response";
-import { PureSchemaWithEncodedType } from "./schema";
+import { getClient } from "./client.js";
+import { PostgrestError } from "./postgrest-error.js";
+import * as PgResponse from "./pg-response.js";
+import { PureSchemaWithEncodedType } from "./schema.js";
 
 // Re-export so TypeScript registers `@supabase/postgrest-js` by its portable
 // package name when emitting declaration files (prevents TS2742).

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/ServiceMap";
-import { getClient } from "./client";
-import { StorageError, SupabaseStorageError } from "./storage-error";
+import { getClient } from "./client.js";
+import { StorageError, SupabaseStorageError } from "./storage-error.js";
 
 /**
  * @internal
