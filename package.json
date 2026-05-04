@@ -1,7 +1,7 @@
 {
   "name": "supabase-effect",
   "type": "module",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "An Effect-ts wrapper for supabase",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
