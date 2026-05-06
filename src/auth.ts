@@ -21,10 +21,10 @@ import {
   type SignInWithOAuthCredentials,
   type Subscription,
 } from "@supabase/supabase-js";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/ServiceMap";
 import { AuthError } from "./auth-error.js";
 import { getClient } from "./client.js";
 
@@ -76,7 +76,7 @@ const flatMapAuthResponse = <T>(
  *
  * @since 0.1.0
  */
-export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
+export class Auth extends Context.Service<Auth>()("supabase-effect/Auth", {
   make: Effect.gen(function* () {
     const authClient = (yield* getClient()).auth;
 
@@ -1152,5 +1152,5 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     };
   }),
 }) {
-  static readonly layer = Layer.effect(this, this.make);
+  static readonly layer = Layer.effect(this)(this.make);
 }

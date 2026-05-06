@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as ServiceMap from "effect/ServiceMap";
 import * as Layer from "effect/Layer";
 
 /**
@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer";
  *
  * @since 0.1.0
  */
-export class Client extends ServiceMap.Service<
+export class Client extends Context.Service<
   Client,
   {
     /**

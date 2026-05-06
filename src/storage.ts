@@ -1,6 +1,6 @@
 import { isStorageError } from "@supabase/storage-js";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as ServiceMap from "effect/ServiceMap";
 import { getClient } from "./client.js";
 import { StorageError, SupabaseStorageError } from "./storage-error.js";
 
@@ -51,7 +51,7 @@ const flatMapStorageResponse = <T>(
       : Effect.succeed(res.data)
   );
 
-export class Storage extends ServiceMap.Service<Storage>()(
+export class Storage extends Context.Service<Storage>()(
   "supabase-effect/Storage",
   {
     make: Effect.gen(function* () {

@@ -20,7 +20,7 @@ No test suite exists yet. Build output goes to `dist/`.
 
 This is a TypeScript library (`supabase-effect`) that wraps `@supabase/supabase-js` with [Effect-ts](https://effect.website/) abstractions.
 
-**Note:** This library only supports Effect v4 (currently beta). The `effect` dependency is pinned to `4.0.0-beta.29`.
+**Note:** This library only supports Effect v4 (currently beta). The `effect` dependency is pinned to `4.0.0-beta.60`.
 
 ## Breaking Changes in v0.2.0
 
@@ -91,7 +91,7 @@ pipe(
 
 ### Client layer (`src/client.ts`)
 
-`Client` is an Effect `ServiceMap.Service` that wraps `SupabaseClient`. It is provided via `Layer`:
+`Client` is an Effect `Context.Service` that wraps `SupabaseClient`. It is provided via `Layer`:
 - `Client.browser(url, key)` — creates a browser client layer
 - `Client.ssr(url, key, { cookies })` — creates an SSR client layer using `@supabase/ssr`
 
@@ -101,7 +101,7 @@ pipe(
 
 ### Auth service (`src/auth.ts`)
 
-`Auth` is an Effect `ServiceMap.Service` that wraps `SupabaseClient.auth`. It requires `Client` in its context and is provided via `Auth.layer`.
+`Auth` is an Effect `Context.Service` that wraps `SupabaseClient.auth`. It requires `Client` in its context and is provided via `Auth.layer`.
 
 All methods mirror the `@supabase/supabase-js` auth API but return `Effect`s instead of Promises:
 - Nullable results are wrapped in `Option`
@@ -120,7 +120,7 @@ All methods mirror the `@supabase/supabase-js` auth API but return `Effect`s ins
 
 ### Storage service (`src/storage.ts`)
 
-`Storage` is an Effect `ServiceMap.Service` that wraps `SupabaseClient.storage`. It requires `Client` in its context and is provided via `Storage.layer`.
+`Storage` is an Effect `Context.Service` that wraps `SupabaseClient.storage`. It requires `Client` in its context and is provided via `Storage.layer`.
 
 All methods take `bucket: string` as their first argument, followed by the original SDK parameters. They return `Effect`s instead of Promises:
 - Nullable results are wrapped in `Option`
