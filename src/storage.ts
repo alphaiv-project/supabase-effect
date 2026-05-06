@@ -96,9 +96,9 @@ export class Storage extends Context.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["createSignedUrl"]>
       ) =>
-        tryStoragePromise(() => client.from(bucket).createSignedUrl(...args)).pipe(
-          flatMapStorageResponse
-        );
+        tryStoragePromise(() =>
+          client.from(bucket).createSignedUrl(...args)
+        ).pipe(flatMapStorageResponse);
 
       const createSignedUrls = (
         bucket: string,
