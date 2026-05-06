@@ -1,24 +1,25 @@
-import type {
-  AuthChangeEvent,
-  AuthError as SupabaseAuthError,
-  AuthMFAChallengePhoneResponse,
-  AuthMFAChallengeTOTPResponse,
-  AuthMFAChallengeWebauthnResponse,
-  AuthMFAEnrollPhoneResponse,
-  AuthMFAEnrollTOTPResponse,
-  AuthMFAEnrollWebauthnResponse,
-  AuthTokenResponse,
-  MFAChallengePhoneParams,
-  MFAChallengeTOTPParams,
-  MFAChallengeWebauthnParams,
-  MFAEnrollPhoneParams,
-  MFAEnrollTOTPParams,
-  MFAEnrollWebauthnParams,
-  OAuthResponse,
-  Session,
-  SignInWithIdTokenCredentials,
-  SignInWithOAuthCredentials,
-  Subscription,
+import {
+  isAuthError,
+  type AuthChangeEvent,
+  type AuthError as SupabaseAuthError,
+  type AuthMFAChallengePhoneResponse,
+  type AuthMFAChallengeTOTPResponse,
+  type AuthMFAChallengeWebauthnResponse,
+  type AuthMFAEnrollPhoneResponse,
+  type AuthMFAEnrollTOTPResponse,
+  type AuthMFAEnrollWebauthnResponse,
+  type AuthTokenResponse,
+  type MFAChallengePhoneParams,
+  type MFAChallengeTOTPParams,
+  type MFAChallengeWebauthnParams,
+  type MFAEnrollPhoneParams,
+  type MFAEnrollTOTPParams,
+  type MFAEnrollWebauthnParams,
+  type OAuthResponse,
+  type Session,
+  type SignInWithIdTokenCredentials,
+  type SignInWithOAuthCredentials,
+  type Subscription,
 } from "@supabase/supabase-js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -26,6 +27,24 @@ import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { AuthError } from "./auth-error.js";
 import { getClient } from "./client.js";
+
+/**
+ * @internal
+ *
+ * Mirrors {@link Effect.promise} but lifts AuthError-shaped throws into a
+ * typed `AuthError` failure. Anything else surfaces as a defect — the
+ * underlying SDK can throw e.g. `LockAcquireTimeoutError` or propagate
+ * subscriber-callback errors, and we want those to crash loudly rather than
+ * silently leak as `unknown` in the error channel.
+ */
+const tryAuthPromise = <T>(fn: () => Promise<T>): Effect.Effect<T, AuthError> =>
+  Effect.tryPromise({
+    try: fn,
+    catch: (e) => {
+      if (isAuthError(e)) return new AuthError(e);
+      throw e;
+    },
+  });
 
 /**
  * @internal
@@ -44,7 +63,8 @@ const flatMapAuthResponse = <T>(
     | {
         data: unknown;
         error: SupabaseAuthError;
-      }
+      },
+    AuthError
   >
 ): Effect.Effect<T, AuthError> =>
   Effect.flatMap(authResponse, (res) =>
@@ -63,7 +83,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminCreateUser = (
       ...args: Parameters<typeof authClient.admin.createUser>
     ) =>
-      Effect.promise(() => authClient.admin.createUser(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.createUser(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user }) => user)
       );
@@ -73,7 +93,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
         typeof authClient.admin.customProviders.createProvider
       >
     ) =>
-      Effect.promise(() =>
+      tryAuthPromise(() =>
         authClient.admin.customProviders.createProvider(...args)
       ).pipe(flatMapAuthResponse, Effect.map(Option.fromNullOr));
 
@@ -82,21 +102,21 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
         typeof authClient.admin.customProviders.deleteProvider
       >
     ) =>
-      Effect.promise(() =>
+      tryAuthPromise(() =>
         authClient.admin.customProviders.deleteProvider(...args)
       ).pipe(flatMapAuthResponse, Effect.asVoid);
 
     const adminCustomProvidersGetProvider = (
       ...args: Parameters<typeof authClient.admin.customProviders.getProvider>
     ) =>
-      Effect.promise(() =>
+      tryAuthPromise(() =>
         authClient.admin.customProviders.getProvider(...args)
       ).pipe(flatMapAuthResponse, Effect.map(Option.fromNullOr));
 
     const adminCustomProvidersListProviders = (
       ...args: Parameters<typeof authClient.admin.customProviders.listProviders>
     ) =>
-      Effect.promise(() =>
+      tryAuthPromise(() =>
         authClient.admin.customProviders.listProviders(...args)
       ).pipe(
         flatMapAuthResponse,
@@ -108,14 +128,14 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
         typeof authClient.admin.customProviders.updateProvider
       >
     ) =>
-      Effect.promise(() =>
+      tryAuthPromise(() =>
         authClient.admin.customProviders.updateProvider(...args)
       ).pipe(flatMapAuthResponse, Effect.map(Option.fromNullOr));
 
     const adminDeleteUser = (
       ...args: Parameters<typeof authClient.admin.deleteUser>
     ) =>
-      Effect.promise(() => authClient.admin.deleteUser(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.deleteUser(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user }) => user)
       );
@@ -123,14 +143,14 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminGenerateLink = (
       ...args: Parameters<typeof authClient.admin.generateLink>
     ) =>
-      Effect.promise(() => authClient.admin.generateLink(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.generateLink(...args)).pipe(
         flatMapAuthResponse
       );
 
     const adminGetUserById = (
       ...args: Parameters<typeof authClient.admin.getUserById>
     ) =>
-      Effect.promise(() => authClient.admin.getUserById(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.getUserById(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user }) => user)
       );
@@ -138,7 +158,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminInviteUserByEmail = (
       ...args: Parameters<typeof authClient.admin.inviteUserByEmail>
     ) =>
-      Effect.promise(() => authClient.admin.inviteUserByEmail(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.inviteUserByEmail(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user }) => user)
       );
@@ -146,14 +166,14 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminListUsers = (
       ...args: Parameters<typeof authClient.admin.listUsers>
     ) =>
-      Effect.promise(() => authClient.admin.listUsers(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.listUsers(...args)).pipe(
         flatMapAuthResponse
       );
 
     const adminaMfaDeleteFactor = (
       ...args: Parameters<typeof authClient.admin.mfa.deleteFactor>
     ) =>
-      Effect.promise(() => authClient.admin.mfa.deleteFactor(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.mfa.deleteFactor(...args)).pipe(
         flatMapAuthResponse,
         Effect.map((res) => Option.fromUndefinedOr(res?.id))
       );
@@ -161,7 +181,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminaMfaListFactors = (
       ...args: Parameters<typeof authClient.admin.mfa.listFactors>
     ) =>
-      Effect.promise(() => authClient.admin.mfa.listFactors(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.mfa.listFactors(...args)).pipe(
         flatMapAuthResponse,
         Effect.map((res) => res?.factors ?? [])
       );
@@ -169,7 +189,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminOAuthCreateClient = (
       ...args: Parameters<typeof authClient.admin.oauth.createClient>
     ) =>
-      Effect.promise(() => authClient.admin.oauth.createClient(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.oauth.createClient(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(Option.fromNullOr)
       );
@@ -177,7 +197,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminOAuthDeleteClient = (
       ...args: Parameters<typeof authClient.admin.oauth.deleteClient>
     ) =>
-      Effect.promise(() => authClient.admin.oauth.deleteClient(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.oauth.deleteClient(...args)).pipe(
         flatMapAuthResponse,
         Effect.asVoid
       );
@@ -185,7 +205,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminOAuthGetClient = (
       ...args: Parameters<typeof authClient.admin.oauth.getClient>
     ) =>
-      Effect.promise(() => authClient.admin.oauth.getClient(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.oauth.getClient(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(Option.fromNullOr)
       );
@@ -193,21 +213,21 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminOAuthListClients = (
       ...args: Parameters<typeof authClient.admin.oauth.listClients>
     ) =>
-      Effect.promise(() => authClient.admin.oauth.listClients(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.oauth.listClients(...args)).pipe(
         flatMapAuthResponse
       );
 
     const adminOAuthRegenerateClientSecret = (
       ...args: Parameters<typeof authClient.admin.oauth.regenerateClientSecret>
     ) =>
-      Effect.promise(() =>
+      tryAuthPromise(() =>
         authClient.admin.oauth.regenerateClientSecret(...args)
       ).pipe(flatMapAuthResponse, Effect.map(Option.fromNullOr));
 
     const adminOAuthUpdateClient = (
       ...args: Parameters<typeof authClient.admin.oauth.updateClient>
     ) =>
-      Effect.promise(() => authClient.admin.oauth.updateClient(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.oauth.updateClient(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(Option.fromNullOr)
       );
@@ -215,7 +235,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminSignOut = (
       ...args: Parameters<typeof authClient.admin.signOut>
     ) =>
-      Effect.promise(() => authClient.admin.signOut(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.signOut(...args)).pipe(
         flatMapAuthResponse,
         Effect.asVoid
       );
@@ -223,7 +243,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const adminUpdateUserById = (
       ...args: Parameters<typeof authClient.admin.updateUserById>
     ) =>
-      Effect.promise(() => authClient.admin.updateUserById(...args)).pipe(
+      tryAuthPromise(() => authClient.admin.updateUserById(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user }) => user)
       );
@@ -259,7 +279,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
       >,
       AuthError
     > {
-      return Effect.promise(() =>
+      return tryAuthPromise(() =>
         authClient.mfa.challenge(params as MFAChallengeTOTPParams)
       ).pipe(flatMapAuthResponse, Effect.map(Option.fromNullOr));
     }
@@ -267,7 +287,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const mfaChallengeAndVerify = (
       ...args: Parameters<typeof authClient.mfa.challengeAndVerify>
     ) =>
-      Effect.promise(() => authClient.mfa.challengeAndVerify(...args)).pipe(
+      tryAuthPromise(() => authClient.mfa.challengeAndVerify(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(Option.fromNullOr)
       );
@@ -292,7 +312,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
       | SuccessData<AuthMFAEnrollWebauthnResponse>,
       AuthError
     > {
-      return Effect.promise(() =>
+      return tryAuthPromise(() =>
         authClient.mfa.enroll(params as MFAEnrollTOTPParams)
       ).pipe(flatMapAuthResponse) as Effect.Effect<
         | SuccessData<AuthMFAEnrollTOTPResponse>
@@ -305,26 +325,26 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const mfaGetAuthenticatorAssuranceLevel = (
       ...args: Parameters<typeof authClient.mfa.getAuthenticatorAssuranceLevel>
     ) =>
-      Effect.promise(() =>
+      tryAuthPromise(() =>
         authClient.mfa.getAuthenticatorAssuranceLevel(...args)
       ).pipe(flatMapAuthResponse, Effect.map(Option.fromNullOr));
 
     const mfaListFactors = (
       ...args: Parameters<typeof authClient.mfa.listFactors>
     ) =>
-      Effect.promise(() => authClient.mfa.listFactors(...args)).pipe(
+      tryAuthPromise(() => authClient.mfa.listFactors(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(Option.fromNullOr)
       );
 
     const mfaUnenroll = (...args: Parameters<typeof authClient.mfa.unenroll>) =>
-      Effect.promise(() => authClient.mfa.unenroll(...args)).pipe(
+      tryAuthPromise(() => authClient.mfa.unenroll(...args)).pipe(
         flatMapAuthResponse,
         Effect.map((res) => Option.fromUndefinedOr(res?.id))
       );
 
     const mfaVerify = (...args: Parameters<typeof authClient.mfa.verify>) =>
-      Effect.promise(() => authClient.mfa.verify(...args)).pipe(
+      tryAuthPromise(() => authClient.mfa.verify(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(Option.fromNullOr)
       );
@@ -332,18 +352,18 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const exchangeCodeForSession = (
       ...args: Parameters<typeof authClient.exchangeCodeForSession>
     ) =>
-      Effect.promise(() => authClient.exchangeCodeForSession(...args)).pipe(
+      tryAuthPromise(() => authClient.exchangeCodeForSession(...args)).pipe(
         flatMapAuthResponse
       );
 
     const getClaims = (...args: Parameters<typeof authClient.getClaims>) =>
-      Effect.promise(() => authClient.getClaims(...args)).pipe(
+      tryAuthPromise(() => authClient.getClaims(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(Option.fromNullOr)
       );
 
     const getSession = (...args: Parameters<typeof authClient.getSession>) =>
-      Effect.promise(() => authClient.getSession(...args)).pipe(
+      tryAuthPromise(() => authClient.getSession(...args)).pipe(
         Effect.flatMap((res) => {
           if (res.error) {
             return Effect.fail(new AuthError(res.error));
@@ -355,7 +375,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
       );
 
     const getUser = (...args: Parameters<typeof authClient.getUser>) =>
-      Effect.promise(() => authClient.getUser(...args)).pipe(
+      tryAuthPromise(() => authClient.getUser(...args)).pipe(
         flatMapAuthResponse,
         Effect.map((res) => res.user)
       );
@@ -363,13 +383,13 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const getUserIdentities = (
       ...args: Parameters<typeof authClient.getUserIdentities>
     ) =>
-      Effect.promise(() => authClient.getUserIdentities(...args)).pipe(
+      tryAuthPromise(() => authClient.getUserIdentities(...args)).pipe(
         flatMapAuthResponse,
         Effect.map((res) => res?.identities ?? [])
       );
 
     const initialize = (...args: Parameters<typeof authClient.initialize>) =>
-      Effect.promise(() => authClient.initialize(...args)).pipe(
+      tryAuthPromise(() => authClient.initialize(...args)).pipe(
         Effect.flatMap((res) => {
           if (res.error !== null) {
             return Effect.fail(new AuthError(res.error));
@@ -395,7 +415,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
       SuccessData<OAuthResponse> | SuccessData<AuthTokenResponse>,
       AuthError
     > {
-      return Effect.promise(() =>
+      return tryAuthPromise(() =>
         authClient.linkIdentity(credentials as SignInWithOAuthCredentials)
       ).pipe(flatMapAuthResponse);
     }
@@ -425,7 +445,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const reauthenticate = (
       ...args: Parameters<typeof authClient.reauthenticate>
     ) =>
-      Effect.promise(() => authClient.reauthenticate(...args)).pipe(
+      tryAuthPromise(() => authClient.reauthenticate(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user, session }) => ({
           user: Option.fromNullOr(user),
@@ -436,7 +456,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const refreshSession = (
       ...args: Parameters<typeof authClient.refreshSession>
     ) =>
-      Effect.promise(() => authClient.refreshSession(...args)).pipe(
+      tryAuthPromise(() => authClient.refreshSession(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user, session }) => ({
           user: Option.fromNullOr(user),
@@ -445,7 +465,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
       );
 
     const resend = (...args: Parameters<typeof authClient.resend>) =>
-      Effect.promise(() => authClient.resend(...args)).pipe(
+      tryAuthPromise(() => authClient.resend(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ messageId }) => Option.fromNullishOr(messageId))
       );
@@ -453,13 +473,13 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const resetPasswordForEmail = (
       ...args: Parameters<typeof authClient.resetPasswordForEmail>
     ) =>
-      Effect.promise(() => authClient.resetPasswordForEmail(...args)).pipe(
+      tryAuthPromise(() => authClient.resetPasswordForEmail(...args)).pipe(
         flatMapAuthResponse,
         Effect.asVoid
       );
 
     const setSession = (...args: Parameters<typeof authClient.setSession>) =>
-      Effect.promise(() => authClient.setSession(...args)).pipe(
+      tryAuthPromise(() => authClient.setSession(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user, session }) => ({
           user: Option.fromNullOr(user),
@@ -470,7 +490,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const signInAnonymously = (
       ...args: Parameters<typeof authClient.signInAnonymously>
     ) =>
-      Effect.promise(() => authClient.signInAnonymously(...args)).pipe(
+      tryAuthPromise(() => authClient.signInAnonymously(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user, session }) => ({
           user: Option.fromNullOr(user),
@@ -481,7 +501,7 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const signInWithIdToken = (
       ...args: Parameters<typeof authClient.signInWithIdToken>
     ) =>
-      Effect.promise(() => authClient.signInWithIdToken(...args)).pipe(
+      tryAuthPromise(() => authClient.signInWithIdToken(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user, session }) => ({
           user: Option.fromNullOr(user),
@@ -492,14 +512,14 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const signInWithOAuth = (
       ...args: Parameters<typeof authClient.signInWithOAuth>
     ) =>
-      Effect.promise(() => authClient.signInWithOAuth(...args)).pipe(
+      tryAuthPromise(() => authClient.signInWithOAuth(...args)).pipe(
         flatMapAuthResponse
       );
 
     const signInWithOtp = (
       ...args: Parameters<typeof authClient.signInWithOtp>
     ) =>
-      Effect.promise(() => authClient.signInWithOtp(...args)).pipe(
+      tryAuthPromise(() => authClient.signInWithOtp(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ messageId }) => Option.fromNullishOr(messageId))
       );
@@ -507,14 +527,14 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const signInWithPassword = (
       ...args: Parameters<typeof authClient.signInWithPassword>
     ) =>
-      Effect.promise(() => authClient.signInWithPassword(...args)).pipe(
+      tryAuthPromise(() => authClient.signInWithPassword(...args)).pipe(
         flatMapAuthResponse
       );
 
     const signInWithSSO = (
       ...args: Parameters<typeof authClient.signInWithSSO>
     ) =>
-      Effect.promise(() => authClient.signInWithSSO(...args)).pipe(
+      tryAuthPromise(() => authClient.signInWithSSO(...args)).pipe(
         flatMapAuthResponse,
         Effect.map((res) => Option.fromUndefinedOr(res?.url))
       );
@@ -522,19 +542,19 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
     const signInWithWeb3 = (
       ...args: Parameters<typeof authClient.signInWithWeb3>
     ) =>
-      Effect.promise(() => authClient.signInWithWeb3(...args)).pipe(
+      tryAuthPromise(() => authClient.signInWithWeb3(...args)).pipe(
         flatMapAuthResponse
       );
 
     const signOut = (...args: Parameters<typeof authClient.signOut>) =>
-      Effect.promise(() => authClient.signOut(...args)).pipe(
+      tryAuthPromise(() => authClient.signOut(...args)).pipe(
         Effect.flatMap((res) =>
           res.error ? Effect.fail(new AuthError(res.error)) : Effect.void
         )
       );
 
     const signUp = (...args: Parameters<typeof authClient.signUp>) =>
-      Effect.promise(() => authClient.signUp(...args)).pipe(
+      tryAuthPromise(() => authClient.signUp(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user, session }) => ({
           user: Option.fromNullOr(user),
@@ -544,28 +564,28 @@ export class Auth extends ServiceMap.Service<Auth>()("supabase-effect/Auth", {
 
     const startAutoRefresh = (
       ...args: Parameters<typeof authClient.startAutoRefresh>
-    ) => Effect.promise(() => authClient.startAutoRefresh(...args));
+    ) => tryAuthPromise(() => authClient.startAutoRefresh(...args));
 
     const stopAutoRefresh = (
       ...args: Parameters<typeof authClient.stopAutoRefresh>
-    ) => Effect.promise(() => authClient.stopAutoRefresh(...args));
+    ) => tryAuthPromise(() => authClient.stopAutoRefresh(...args));
 
     const unlinkIdentity = (
       ...args: Parameters<typeof authClient.unlinkIdentity>
     ) =>
-      Effect.promise(() => authClient.unlinkIdentity(...args)).pipe(
+      tryAuthPromise(() => authClient.unlinkIdentity(...args)).pipe(
         flatMapAuthResponse,
         Effect.asVoid
       );
 
     const updateUser = (...args: Parameters<typeof authClient.updateUser>) =>
-      Effect.promise(() => authClient.updateUser(...args)).pipe(
+      tryAuthPromise(() => authClient.updateUser(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user }) => user)
       );
 
     const verifyOtp = (...args: Parameters<typeof authClient.verifyOtp>) =>
-      Effect.promise(() => authClient.verifyOtp(...args)).pipe(
+      tryAuthPromise(() => authClient.verifyOtp(...args)).pipe(
         flatMapAuthResponse,
         Effect.map(({ user, session }) => ({
           user: Option.fromNullOr(user),

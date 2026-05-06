@@ -1,7 +1,28 @@
+import { isStorageError } from "@supabase/storage-js";
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/ServiceMap";
 import { getClient } from "./client.js";
 import { StorageError, SupabaseStorageError } from "./storage-error.js";
+
+/**
+ * @internal
+ *
+ * Mirrors {@link Effect.promise} but lifts StorageError-shaped throws into a
+ * typed `StorageError` failure. Anything else surfaces as a defect — the
+ * underlying SDK can throw non-StorageError exceptions (e.g. unexpected
+ * runtime failures), and we want those to crash loudly rather than silently
+ * leak as `unknown` in the error channel.
+ */
+const tryStoragePromise = <T>(
+  fn: () => Promise<T>
+): Effect.Effect<T, StorageError> =>
+  Effect.tryPromise({
+    try: fn,
+    catch: (e) => {
+      if (isStorageError(e)) return new StorageError(e as SupabaseStorageError);
+      throw e;
+    },
+  });
 
 /**
  * @internal
@@ -20,7 +41,8 @@ const flatMapStorageResponse = <T>(
     | {
         data: null;
         error: SupabaseStorageError;
-      }
+      },
+    StorageError
   >
 ): Effect.Effect<T, StorageError> =>
   Effect.flatMap(authResponse, (res) =>
@@ -37,18 +59,18 @@ export class Storage extends ServiceMap.Service<Storage>()(
       type CertainStorageClient = ReturnType<typeof client.from>;
 
       const createBucket = (...args: Parameters<typeof client.createBucket>) =>
-        Effect.promise(() => client.createBucket(...args)).pipe(
+        tryStoragePromise(() => client.createBucket(...args)).pipe(
           flatMapStorageResponse
         );
 
       const deleteBucket = (...args: Parameters<typeof client.deleteBucket>) =>
-        Effect.promise(() => client.deleteBucket(...args)).pipe(
+        tryStoragePromise(() => client.deleteBucket(...args)).pipe(
           flatMapStorageResponse,
           Effect.map((res) => res.message)
         );
 
       const emptyBucket = (...args: Parameters<typeof client.emptyBucket>) =>
-        Effect.promise(() => client.emptyBucket(...args)).pipe(
+        tryStoragePromise(() => client.emptyBucket(...args)).pipe(
           flatMapStorageResponse,
           Effect.map((res) => res.message)
         );
@@ -57,7 +79,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["copy"]>
       ) =>
-        Effect.promise(() => client.from(bucket).copy(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).copy(...args)).pipe(
           flatMapStorageResponse,
           Effect.map((res) => res.path)
         );
@@ -66,7 +88,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["createSignedUploadUrl"]>
       ) =>
-        Effect.promise(() =>
+        tryStoragePromise(() =>
           client.from(bucket).createSignedUploadUrl(...args)
         ).pipe(flatMapStorageResponse);
 
@@ -74,7 +96,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["createSignedUrl"]>
       ) =>
-        Effect.promise(() => client.from(bucket).createSignedUrl(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).createSignedUrl(...args)).pipe(
           flatMapStorageResponse
         );
 
@@ -82,7 +104,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["createSignedUrls"]>
       ) =>
-        Effect.promise(() =>
+        tryStoragePromise(() =>
           client.from(bucket).createSignedUrls(...args)
         ).pipe(flatMapStorageResponse);
 
@@ -90,7 +112,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["download"]>
       ) =>
-        Effect.promise(() => client.from(bucket).download(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).download(...args)).pipe(
           flatMapStorageResponse
         );
 
@@ -98,7 +120,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["exists"]>
       ) =>
-        Effect.promise(() => client.from(bucket).exists(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).exists(...args)).pipe(
           Effect.flatMap((res) =>
             res.error
               ? Effect.fail(new StorageError(res.error))
@@ -118,7 +140,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["info"]>
       ) =>
-        Effect.promise(() => client.from(bucket).info(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).info(...args)).pipe(
           flatMapStorageResponse
         );
 
@@ -126,7 +148,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["list"]>
       ) =>
-        Effect.promise(() => client.from(bucket).list(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).list(...args)).pipe(
           flatMapStorageResponse
         );
 
@@ -134,7 +156,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["listV2"]>
       ) =>
-        Effect.promise(() => client.from(bucket).listV2(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).listV2(...args)).pipe(
           flatMapStorageResponse
         );
 
@@ -142,7 +164,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["move"]>
       ) =>
-        Effect.promise(() => client.from(bucket).move(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).move(...args)).pipe(
           flatMapStorageResponse,
           Effect.map((res) => res.message)
         );
@@ -151,7 +173,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["remove"]>
       ) =>
-        Effect.promise(() => client.from(bucket).remove(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).remove(...args)).pipe(
           flatMapStorageResponse
         );
 
@@ -159,7 +181,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["update"]>
       ) =>
-        Effect.promise(() => client.from(bucket).update(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).update(...args)).pipe(
           flatMapStorageResponse
         );
 
@@ -167,7 +189,7 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["upload"]>
       ) =>
-        Effect.promise(() => client.from(bucket).upload(...args)).pipe(
+        tryStoragePromise(() => client.from(bucket).upload(...args)).pipe(
           flatMapStorageResponse
         );
 
@@ -175,22 +197,22 @@ export class Storage extends ServiceMap.Service<Storage>()(
         bucket: string,
         ...args: Parameters<CertainStorageClient["uploadToSignedUrl"]>
       ) =>
-        Effect.promise(() =>
+        tryStoragePromise(() =>
           client.from(bucket).uploadToSignedUrl(...args)
         ).pipe(flatMapStorageResponse);
 
       const getBucket = (...args: Parameters<typeof client.getBucket>) =>
-        Effect.promise(() => client.getBucket(...args)).pipe(
+        tryStoragePromise(() => client.getBucket(...args)).pipe(
           flatMapStorageResponse
         );
 
       const listBuckets = (...args: Parameters<typeof client.listBuckets>) =>
-        Effect.promise(() => client.listBuckets(...args)).pipe(
+        tryStoragePromise(() => client.listBuckets(...args)).pipe(
           flatMapStorageResponse
         );
 
       const updateBucket = (...args: Parameters<typeof client.updateBucket>) =>
-        Effect.promise(() => client.updateBucket(...args)).pipe(
+        tryStoragePromise(() => client.updateBucket(...args)).pipe(
           flatMapStorageResponse,
           Effect.map((res) => res.message)
         );
