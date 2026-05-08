@@ -114,21 +114,91 @@ type ComputeSelectResult<QB, Q extends string> =
 // ---------------------------------------------------------------------------
 
 /**
- * Creates a PostgREST query builder for the given table.
+ * Resolves the public schema for a given Supabase `Database` type. Mirrors
+ * the default schema resolution that supabase-js performs when the user
+ * doesn't specify an explicit schema.
+ */
+type ResolvePublicSchema<DB> = DB extends { public: infer S } ? S : never;
+
+/**
+ * Resolves the relation entry (Tables[T] or Views[T]) for a given relation
+ * name. Tables take precedence; falls back to Views; otherwise `never`.
+ *
+ * This is the workaround for a TypeScript overload-resolution quirk: when
+ * `client.from(name)` is called inside a generic closure (`name: T extends
+ * string`), the compiler picks one overload at body-analysis time, and the
+ * "view" overload effectively gets dropped (Relation widens to `unknown`).
+ * By computing the relation type ourselves and casting, we preserve full
+ * type inference for both tables and views.
+ */
+type ResolveRelation<DB, T extends string> =
+  ResolvePublicSchema<DB> extends { Tables: infer TBL }
+    ? T extends keyof TBL
+      ? TBL[T]
+      : ResolvePublicSchema<DB> extends { Views: infer VW }
+        ? T extends keyof VW
+          ? VW[T]
+          : never
+        : never
+    : never;
+
+/**
+ * Extracts `Relationships` from the resolved relation, defaulting to `unknown`
+ * (matches supabase-js's default for `PostgrestQueryBuilder`).
+ */
+type ResolveRelationships<DB, T extends string> =
+  ResolveRelation<DB, T> extends { Relationships: infer R } ? R : unknown;
+
+/**
+ * The resolved `PostgrestQueryBuilder` type for a given `Database` and
+ * relation name.
+ *
+ * `Schema` is preserved (not widened to `any`) so that
+ * `select()`'s string-literal column parser — `GetResult<Schema, Row,
+ * RelationName, Relationships, Q, ClientOptions>` — can resolve embedded
+ * resources (e.g. `select("id, posts(*)")`). `ClientOptions` is left as
+ * `any` because no combinator depends on it.
+ */
+type ResolveQueryBuilder<DB, T extends string> = PostgrestQueryBuilder<
+  any,
+  ResolvePublicSchema<DB> extends infer S
+    ? S extends {
+        Tables: Record<string, unknown>;
+        Views: Record<string, unknown>;
+        Functions: Record<string, unknown>;
+      }
+      ? S
+      : never
+    : never,
+  ResolveRelation<DB, T> extends { Row: Record<string, unknown> }
+    ? ResolveRelation<DB, T>
+    : { Row: Record<string, unknown>; Relationships: [] },
+  T,
+  ResolveRelationships<DB, T>
+>;
+
+/**
+ * Creates a PostgREST query builder for the given table or view.
  *
  * This is the **recommended entry point** for all queries. It accesses the
  * {@link Client} service from the Effect context, calls `client.from(tableName)`,
  * and returns a typed query builder wrapped in an `Effect`.
  *
+ * Works uniformly for tables and views: both updatable and non-updatable
+ * views (entries under `Database["public"]["Views"]`) resolve to the correct
+ * row type at the type level. For non-updatable views (no `Insert`/`Update`
+ * fields), mutation combinators like {@link insert}/{@link update}/
+ * {@link delete_} will fail at compile time, matching supabase-js.
+ *
  * Chain with {@link select} for read queries, or {@link insert}, {@link update},
- * {@link upsert}, {@link delete_} for mutations.
+ * {@link upsert}, {@link delete_} for mutations on tables and updatable views.
  *
  * @typeParam DB - The generated Supabase database schema type.
  * @param tableName - The name of the table or view to query.
  *
  * @example
  * ```ts
- * // Read query
+ * // Read query (table)
  * pipe(
  *   Postgrest.from<Database>()("users"),
  *   Postgrest.select("id, name, email"),
@@ -137,7 +207,14 @@ type ComputeSelectResult<QB, Q extends string> =
  *   Postgrest.executeMultiple(),
  * )
  *
- * // Mutation
+ * // Read query (view)
+ * pipe(
+ *   Postgrest.from<Database>()("user_post_counts"),
+ *   Postgrest.select("user_id, post_count"),
+ *   Postgrest.executeMultiple(),
+ * )
+ *
+ * // Mutation (table or updatable view)
  * pipe(
  *   Postgrest.from<Database>()("users"),
  *   Postgrest.insert({ name: "Alice", email: "alice@example.com" }),
@@ -151,7 +228,13 @@ type ComputeSelectResult<QB, Q extends string> =
 export const from =
   <DB>() =>
   <T extends string>(tableName: T) =>
-    Effect.map(getClient<DB>(), (client) => client.from(tableName));
+    Effect.map(getClient<DB>(), (client) =>
+      client.from(tableName as never)
+    ) as unknown as Effect.Effect<
+      ResolveQueryBuilder<DB, T>,
+      never,
+      import("./client.js").Client
+    >;
 
 /**
  * Alias for {@link from}. Creates a PostgREST query builder for the given table.
