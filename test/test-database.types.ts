@@ -120,7 +120,71 @@ export interface Database {
       };
     };
     Views: {
-      [_ in never]: never;
+      // Non-updatable view (read-only): aggregates posts per user.
+      // Mirrors what Supabase CLI generates for a `CREATE VIEW` — only `Row`
+      // and `Relationships`, with nullable columns (typical for outer joins
+      // and aggregations).
+      user_post_counts: {
+        Row: {
+          user_id: number | null;
+          user_name: string | null;
+          email: string | null;
+          post_count: number | null;
+          last_post_at: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "posts_author_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // Updatable view: surfaces the same shape as `users` (typically backed
+      // by INSTEAD OF triggers or a simple updatable view). Contains
+      // `Insert`/`Update` in addition to `Row`/`Relationships`.
+      active_users: {
+        Row: {
+          id: number;
+          name: string;
+          email: string;
+          age: number | null;
+          role: string;
+        };
+        Insert: {
+          id?: number;
+          name: string;
+          email: string;
+          age?: number | null;
+          role?: string;
+        };
+        Update: {
+          id?: number;
+          name?: string;
+          email?: string;
+          age?: number | null;
+          role?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "users_role_fkey";
+            columns: ["role"];
+            isOneToOne: false;
+            referencedRelation: "roles";
+            referencedColumns: ["name"];
+          },
+        ];
+      };
+      // Non-updatable view with no relationships: simple summary stats.
+      role_summary: {
+        Row: {
+          role_name: string | null;
+          user_count: number | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       // Function returning a single scalar value
