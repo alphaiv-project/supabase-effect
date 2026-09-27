@@ -2,11 +2,11 @@
 
 An [Effect-ts](https://effect.website/) wrapper for [Supabase](https://supabase.com/) that provides type-safe, composable database operations.
 
-## Important: Effect v4 Beta Dependency
+## Important: Effect v4 Pre-release Dependency
 
-**This library requires `effect@4.0.0-beta.29`, which is currently experimental.**
+**This library requires `effect@4.0.0-rc.117`, which is a pre-release (release candidate).**
 
-- Effect v4 is in beta and APIs may change
+- Effect v4 is not yet stable and APIs may change
 - Production use: Evaluate stability requirements for your use case
 
 We'll update to stable Effect v4 once released.
@@ -16,7 +16,7 @@ We'll update to stable Effect v4 once released.
 ## Installation
 
 ```bash
-pnpm add supabase-effect effect@4.0.0-beta.29
+pnpm add supabase-effect effect@4.0.0-rc.117
 ```
 
 ## Quick Start
