@@ -20,7 +20,7 @@ No test suite exists yet. Build output goes to `dist/`.
 
 This is a TypeScript library (`supabase-effect`) that wraps `@supabase/supabase-js` with [Effect-ts](https://effect.website/) abstractions.
 
-**Note:** This library only supports Effect v4 (currently beta). The `effect` dependency is pinned to `4.0.0-beta.60`.
+**Note:** This library only supports Effect v4 (currently release candidate). The `effect` dependency is pinned to `4.0.0-rc.117`.
 
 ## Breaking Changes in v0.2.0
 
